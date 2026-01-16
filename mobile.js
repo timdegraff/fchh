@@ -7,6 +7,7 @@ import { simulateProjection } from './burndown-engine.js';
 // State
 let activeTab = 'assets';
 let budgetMode = 'annual'; // 'monthly' | 'annual'
+let incomeDisplayMode = 'current'; // 'current' | 'retire'
 let collapsedSections = {}; 
 let swipeStartX = 0;
 let currentSwipeEl = null;
@@ -272,9 +273,55 @@ function updateHeaderContext() {
             <div class="font-black ${color} text-lg tracking-tighter mono-numbers">${math.toSmartCompactCurrency(s.netWorth)}</div>
         `;
     } else if (activeTab === 'income') {
+        // Toggle Logic
+        let valToShow, labelToShow, color;
+        
+        if (incomeDisplayMode === 'current') {
+            valToShow = s.totalGrossIncome;
+            labelToShow = 'Gross Inc';
+            color = 'text-teal-400';
+        } else {
+            // Calculate Retirement Income (Real $)
+            const d = window.currentData;
+            const a = d.assumptions || {};
+            const curAge = parseFloat(a.currentAge) || 40;
+            const retAge = parseFloat(a.retirementAge) || 65;
+            const yrs = Math.max(0, retAge - curAge);
+            const inf = (a.inflation || 3) / 100;
+            const infFac = Math.pow(1 + inf, yrs);
+            
+            // Social Security
+            const ssStart = parseFloat(a.ssStartAge) || 67;
+            const ssMonthly = parseFloat(a.ssMonthly) || 0;
+            const ssFull = (retAge >= ssStart) ? engine.calculateSocialSecurity(ssMonthly, a.workYearsAtRetirement || 35, infFac) : 0;
+
+            // Income Streams (Retained)
+            const incStreams = (d.income || []).filter(i => i.remainsInRetirement).reduce((acc, inc) => {
+                 const isMon = inc.isMonthly || inc.isMonthly === 'true';
+                 const base = (parseFloat(inc.amount) || 0) * (isMon ? 12 : 1);
+                 const growth = Math.pow(1 + (parseFloat(inc.increase)/100 || 0), yrs);
+                 const expMon = inc.incomeExpensesMonthly || inc.incomeExpensesMonthly === 'true';
+                 const ded = (parseFloat(inc.incomeExpenses) || 0) * (expMon ? 12 : 1);
+                 // Deductions typically don't grow with income growth rate in this simple model, or maybe they do? 
+                 // Sticking to standard model: (Gross * Growth) - Deductions. 
+                 // Ideally deductions grow too, but let's assume they are fixed real costs or grow with inflation implicitly if we don't apply growth.
+                 return acc + (base * growth) - ded;
+            }, 0);
+            
+            const retireNominal = ssFull + incStreams;
+            const retireReal = retireNominal / infFac;
+            valToShow = retireReal;
+            labelToShow = 'Retire (Real)';
+            color = 'text-blue-400';
+        }
+
         html = `
-            <div class="text-[9px] font-bold text-slate-500 uppercase tracking-widest">Gross Inc</div>
-            <div class="font-black text-teal-400 text-lg tracking-tighter mono-numbers">${math.toSmartCompactCurrency(s.totalGrossIncome)}</div>
+            <div class="text-right cursor-pointer" onclick="window.toggleIncomeHeaderMode()">
+                <div class="flex items-center justify-end gap-1 text-[9px] font-bold text-slate-500 uppercase tracking-widest">
+                    ${labelToShow} <i class="fas fa-sync-alt text-[8px] opacity-50"></i>
+                </div>
+                <div class="font-black ${color} text-lg tracking-tighter mono-numbers">${math.toSmartCompactCurrency(valToShow)}</div>
+            </div>
         `;
     } else if (activeTab === 'budget') {
         const factor = budgetMode === 'monthly' ? 1/12 : 1;
@@ -392,25 +439,25 @@ function renderAssets(el) {
                                     <div class="grid grid-cols-3 gap-1">
                                         <div>
                                             <span class="text-[7px] text-slate-500 uppercase block">Shares</span>
-                                            <input data-path="${sect.path}.${i}.shares" type="number" value="${item.shares}" class="bg-slate-900 border border-white/10 rounded p-1 text-[9px] text-white w-full">
+                                            <input data-path="${sect.path}.${i}.shares" type="number" inputmode="decimal" value="${item.shares}" class="bg-slate-900 border border-white/10 rounded p-1 text-[9px] text-white w-full">
                                         </div>
                                         <div>
                                             <span class="text-[7px] text-slate-500 uppercase block">Strike</span>
-                                            <input data-path="${sect.path}.${i}.strikePrice" data-type="currency" value="${math.toCurrency(item.strikePrice)}" class="bg-slate-900 border border-white/10 rounded p-1 text-[9px] text-orange-400 w-full">
+                                            <input data-path="${sect.path}.${i}.strikePrice" data-type="currency" inputmode="decimal" value="${math.toCurrency(item.strikePrice)}" class="bg-slate-900 border border-white/10 rounded p-1 text-[9px] text-orange-400 w-full">
                                         </div>
                                         <div>
                                             <span class="text-[7px] text-slate-500 uppercase block">FMV</span>
-                                            <input data-path="${sect.path}.${i}.currentPrice" data-type="currency" value="${math.toCurrency(item.currentPrice)}" class="bg-slate-900 border border-white/10 rounded p-1 text-[9px] text-white w-full">
+                                            <input data-path="${sect.path}.${i}.currentPrice" data-type="currency" inputmode="decimal" value="${math.toCurrency(item.currentPrice)}" class="bg-slate-900 border border-white/10 rounded p-1 text-[9px] text-white w-full">
                                         </div>
                                     </div>
                                     ` : ''}
                                 </div>
                                 <div class="text-right space-y-1">
                                     ${sect.path === 'investments' ? `
-                                        <input data-path="${sect.path}.${i}.value" data-type="currency" value="${math.toCurrency(item.value)}" class="bg-transparent border-none p-0 text-sm font-black text-right text-white w-28 focus:ring-0">
+                                        <input data-path="${sect.path}.${i}.value" data-type="currency" inputmode="decimal" value="${math.toCurrency(item.value)}" class="bg-transparent border-none p-0 text-sm font-black text-right text-white w-28 focus:ring-0">
                                         <div class="flex items-center justify-end gap-1">
                                             <span class="text-[8px] text-slate-500 font-bold uppercase">Basis</span>
-                                            <input data-path="${sect.path}.${i}.costBasis" data-type="currency" 
+                                            <input data-path="${sect.path}.${i}.costBasis" data-type="currency" inputmode="decimal" 
                                                 value="${isBasisNA(item.type) ? 'N/A' : math.toCurrency(item.costBasis)}" 
                                                 class="bg-transparent border-none p-0 text-[10px] font-bold text-right text-blue-400 w-20 focus:ring-0 ${isBasisNA(item.type) ? 'opacity-30 pointer-events-none' : ''}">
                                         </div>
@@ -420,8 +467,8 @@ function renderAssets(el) {
                                             <span class="text-[8px] font-bold text-slate-500 uppercase mt-1">Equity</span>
                                         </div>
                                     ` : `
-                                        <input data-path="${sect.path}.${i}.${sect.fields[0]}" data-type="currency" value="${math.toCurrency(item[sect.fields[0]])}" class="bg-transparent border-none p-0 text-sm font-black text-right text-white w-28 focus:ring-0">
-                                        ${sect.fields[1] ? `<input data-path="${sect.path}.${i}.${sect.fields[1]}" data-type="currency" value="${math.toCurrency(item[sect.fields[1]])}" class="bg-transparent border-none p-0 text-[10px] font-bold text-right text-red-400 w-28 focus:ring-0 block mt-1">` : ''}
+                                        <input data-path="${sect.path}.${i}.${sect.fields[0]}" data-type="currency" inputmode="decimal" value="${math.toCurrency(item[sect.fields[0]])}" class="bg-transparent border-none p-0 text-sm font-black text-right text-white w-28 focus:ring-0">
+                                        ${sect.fields[1] ? `<input data-path="${sect.path}.${i}.${sect.fields[1]}" data-type="currency" inputmode="decimal" value="${math.toCurrency(item[sect.fields[1]])}" class="bg-transparent border-none p-0 text-[10px] font-bold text-right text-red-400 w-28 focus:ring-0 block mt-1">` : ''}
                                     `)}
                                 </div>
                             </div>
@@ -582,13 +629,13 @@ function renderIncome(el) {
                 <div class="flex gap-4 mb-4">
                     <div class="flex-grow">
                         <label class="block text-[8px] font-bold text-slate-500 uppercase mb-1">Gross Annual</label>
-                        <input data-path="income.${i}.amount" data-type="currency" value="${math.toCurrency(inc.isMonthly ? inc.amount * 12 : inc.amount)}" class="w-full p-2 bg-black/20 rounded-lg text-teal-400 font-black text-sm text-right">
+                        <input data-path="income.${i}.amount" data-type="currency" inputmode="decimal" value="${math.toCurrency(inc.isMonthly ? inc.amount * 12 : inc.amount)}" class="w-full p-2 bg-black/20 rounded-lg text-teal-400 font-black text-sm text-right">
                     </div>
                      <div class="w-32">
                         <label class="block text-[8px] font-bold text-slate-500 uppercase mb-1">Annual Raise</label>
                         <div class="flex items-center bg-black/20 rounded-lg">
                             <button class="stepper-btn" onclick="window.stepValue('income.${i}.increase', -0.5)">-</button>
-                            <input data-path="income.${i}.increase" data-type="percent" value="${inc.increase}%" class="w-full p-2 bg-transparent text-white stepper-input text-center border-none focus:ring-0">
+                            <input data-path="income.${i}.increase" data-type="percent" inputmode="decimal" value="${inc.increase}%" class="w-full p-2 bg-transparent text-white stepper-input text-center border-none focus:ring-0">
                             <button class="stepper-btn" onclick="window.stepValue('income.${i}.increase', 0.5)">+</button>
                         </div>
                     </div>
@@ -603,7 +650,7 @@ function renderIncome(el) {
                             </div>
                             <div class="flex items-center bg-black/20 rounded-lg">
                                 <button class="stepper-btn" onclick="window.stepValue('income.${i}.contribution', -1)">-</button>
-                                <input data-path="income.${i}.contribution" data-type="percent" value="${inc.contribution}%" class="w-full py-1 bg-transparent text-blue-400 stepper-input text-center border-none p-0 focus:ring-0">
+                                <input data-path="income.${i}.contribution" data-type="percent" inputmode="decimal" value="${inc.contribution}%" class="w-full py-1 bg-transparent text-blue-400 stepper-input text-center border-none p-0 focus:ring-0">
                                 <button class="stepper-btn" onclick="window.stepValue('income.${i}.contribution', 1)">+</button>
                             </div>
                         </div>
@@ -611,7 +658,7 @@ function renderIncome(el) {
                             <span class="text-[8px] font-bold text-slate-400 uppercase block mb-1 text-center">Match %</span>
                             <div class="flex items-center bg-black/20 rounded-lg">
                                 <button class="stepper-btn" onclick="window.stepValue('income.${i}.match', -1)">-</button>
-                                <input data-path="income.${i}.match" data-type="percent" value="${inc.match}%" class="w-full py-1 bg-transparent text-white stepper-input text-center border-none p-0 focus:ring-0">
+                                <input data-path="income.${i}.match" data-type="percent" inputmode="decimal" value="${inc.match}%" class="w-full py-1 bg-transparent text-white stepper-input text-center border-none p-0 focus:ring-0">
                                 <button class="stepper-btn" onclick="window.stepValue('income.${i}.match', 1)">+</button>
                             </div>
                         </div>
@@ -619,7 +666,7 @@ function renderIncome(el) {
                             <span class="text-[8px] font-bold text-slate-400 uppercase block mb-1 text-center">Bonus %</span>
                             <div class="flex items-center bg-black/20 rounded-lg">
                                 <button class="stepper-btn" onclick="window.stepValue('income.${i}.bonusPct', -1)">-</button>
-                                <input data-path="income.${i}.bonusPct" data-type="percent" value="${inc.bonusPct}%" class="w-full py-1 bg-transparent text-white stepper-input text-center border-none p-0 focus:ring-0">
+                                <input data-path="income.${i}.bonusPct" data-type="percent" inputmode="decimal" value="${inc.bonusPct}%" class="w-full py-1 bg-transparent text-white stepper-input text-center border-none p-0 focus:ring-0">
                                 <button class="stepper-btn" onclick="window.stepValue('income.${i}.bonusPct', 1)">+</button>
                             </div>
                         </div>
@@ -679,7 +726,7 @@ function renderBudget(el) {
                      <input data-path="budget.${type}.${i}.${type === 'savings' ? 'type' : 'name'}" value="${type === 'savings' ? item.type : item.name}" class="bg-transparent border-none p-0 text-xs font-bold text-white w-full focus:ring-0">
                 </div>
                 <div class="text-right">
-                    <input data-path="budget.${type}.${i}.annual" data-type="currency" value="${math.toCurrency(val)}" class="bg-transparent border-none p-0 text-sm font-black text-right ${valClass} w-28 focus:ring-0">
+                    <input data-path="budget.${type}.${i}.annual" data-type="currency" inputmode="decimal" value="${math.toCurrency(val)}" class="bg-transparent border-none p-0 text-sm font-black text-right ${valClass} w-28 focus:ring-0">
                 </div>
             </div>
         </div>`;
@@ -919,7 +966,7 @@ function renderAid(el) {
                     <div class="flex items-center gap-3 bg-black/20 p-2 rounded-lg">
                         <i class="fas fa-child text-slate-500 pl-2"></i>
                         <input data-path="benefits.dependents.${i}.name" value="${dep.name}" class="bg-transparent border-none text-xs font-bold text-white flex-grow focus:ring-0">
-                        <input data-path="benefits.dependents.${i}.birthYear" type="number" value="${dep.birthYear}" class="bg-transparent border-none text-xs font-black text-blue-400 w-16 text-right focus:ring-0">
+                        <input data-path="benefits.dependents.${i}.birthYear" type="number" inputmode="numeric" value="${dep.birthYear}" class="bg-transparent border-none text-xs font-black text-blue-400 w-16 text-right focus:ring-0">
                          <button onclick="window.removeItem('benefits.dependents', ${i})" class="text-slate-600 px-2"><i class="fas fa-times"></i></button>
                     </div>
                 `).join('')}
@@ -960,11 +1007,11 @@ function renderAid(el) {
              <div class="grid grid-cols-2 gap-3 pt-4 border-t border-white/5">
                  <div>
                      <label class="block text-[8px] font-bold text-slate-500 uppercase mb-1">Shelter</label>
-                     <input data-path="benefits.shelterCosts" data-type="currency" value="${math.toCurrency(ben.shelterCosts)}" class="w-full bg-black/20 border border-white/5 rounded p-1.5 text-xs text-white font-bold text-right">
+                     <input data-path="benefits.shelterCosts" data-type="currency" inputmode="decimal" value="${math.toCurrency(ben.shelterCosts)}" class="w-full bg-black/20 border border-white/5 rounded p-1.5 text-xs text-white font-bold text-right">
                  </div>
                  <div>
                      <label class="block text-[8px] font-bold text-slate-500 uppercase mb-1">Medical</label>
-                     <input data-path="benefits.medicalExps" data-type="currency" value="${math.toCurrency(ben.medicalExps)}" class="w-full bg-black/20 border border-white/5 rounded p-1.5 text-xs text-blue-400 font-bold text-right">
+                     <input data-path="benefits.medicalExps" data-type="currency" inputmode="decimal" value="${math.toCurrency(ben.medicalExps)}" class="w-full bg-black/20 border border-white/5 rounded p-1.5 text-xs text-blue-400 font-bold text-right">
                  </div>
              </div>
         </div>
@@ -1054,6 +1101,12 @@ function renderFire(el) {
 
 
 // --- GLOBAL HELPERS ---
+
+window.toggleIncomeHeaderMode = () => {
+    haptic();
+    incomeDisplayMode = incomeDisplayMode === 'current' ? 'retire' : 'current';
+    updateHeaderContext();
+};
 
 window.toggleSection = (id) => {
     haptic();
@@ -1150,12 +1203,12 @@ window.openAdvancedIncome = (index) => {
                     <span class="text-sm font-bold text-white">Deductions</span>
                     <button class="text-blue-400 text-xs font-bold uppercase" onclick="window.toggleIncDedFreq(${index})">${inc.incomeExpensesMonthly ? 'Monthly' : 'Annual'}</button>
                 </div>
-                <input data-path="income.${index}.incomeExpenses" data-type="currency" value="${math.toCurrency(inc.incomeExpenses)}" class="w-full bg-slate-900 border border-white/10 rounded-lg p-2 text-right text-pink-400 font-black">
+                <input data-path="income.${index}.incomeExpenses" data-type="currency" inputmode="decimal" value="${math.toCurrency(inc.incomeExpenses)}" class="w-full bg-slate-900 border border-white/10 rounded-lg p-2 text-right text-pink-400 font-black">
             </div>
             
             <div class="p-3 bg-black/20 rounded-xl flex justify-between items-center">
                 <span class="text-sm font-bold text-white">No Tax Until Year</span>
-                <input type="number" data-path="income.${index}.nonTaxableUntil" value="${inc.nonTaxableUntil || ''}" placeholder="YYYY" class="w-24 bg-slate-900 border border-white/10 rounded-lg p-2 text-center text-white font-bold">
+                <input type="number" inputmode="numeric" data-path="income.${index}.nonTaxableUntil" value="${inc.nonTaxableUntil || ''}" placeholder="YYYY" class="w-24 bg-slate-900 border border-white/10 rounded-lg p-2 text-center text-white font-bold">
             </div>
         </div>
     `;
