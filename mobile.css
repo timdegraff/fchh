@@ -1,0 +1,188 @@
+/* Mobile Specific Overrides */
+:root {
+    --safe-bottom: env(safe-area-inset-bottom);
+    --app-bg: #0B0F19;
+    --card-bg: rgba(30, 41, 59, 0.4);
+    --glass-border: rgba(255, 255, 255, 0.05);
+}
+
+html, body {
+    height: 100%;
+    width: 100%;
+    overflow-x: hidden;
+    background-color: var(--app-bg) !important;
+    -webkit-overflow-scrolling: touch;
+}
+
+body.safe-bottom {
+    padding-bottom: 0; 
+}
+
+/* 16px font to prevent mobile auto-zoom on focus */
+input, select, textarea {
+    font-size: 16px !important;
+}
+
+#app-container {
+    height: 100%;
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+}
+
+/* The scrollable area */
+#mobile-content {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding-bottom: calc(100px + var(--safe-bottom)); 
+}
+
+.mobile-nav-btn {
+    width: 16.66%; 
+    min-width: 45px;
+    height: 100%;
+    color: #64748b; 
+    transition: all 0.2s;
+    border-radius: 12px;
+    margin: 4px 1px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+}
+
+.mobile-nav-btn.active {
+    background-color: rgba(255, 255, 255, 0.05);
+    backdrop-filter: blur(4px);
+}
+
+/* Specific Tab Active Colors */
+.mobile-nav-btn.active[data-tab="assets-debts"] { color: #fb923c; } 
+.mobile-nav-btn.active[data-tab="income"] { color: #2dd4bf; } 
+.mobile-nav-btn.active[data-tab="budget"] { color: #ec4899; } 
+.mobile-nav-btn.active[data-tab="projection"] { color: #3b82f6; } 
+.mobile-nav-btn.active[data-tab="burndown"] { color: #a855f7; } 
+.mobile-nav-btn.active[data-tab="assumptions"] { color: #10b981; } 
+.mobile-nav-btn.active[data-tab="benefits"] { color: #f59e0b; } 
+
+.mobile-card {
+    background: var(--card-bg);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid var(--glass-border);
+    border-radius: 16px;
+    padding: 10px; 
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+    position: relative;
+    z-index: 10;
+    width: 100%;
+}
+
+/* Swipe to Delete Styles */
+.swipe-outer {
+    position: relative;
+    width: 100%;
+    overflow: hidden;
+    border-radius: 16px;
+    margin-bottom: 0.4rem; 
+}
+
+.swipe-bg {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    right: 0;
+    width: 100%;
+    background-color: #dc2626; 
+    border-radius: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    padding-right: 20px;
+    z-index: 1;
+    opacity: 0; 
+    transition: opacity 0.2s ease;
+}
+
+.swipe-outer.swiping .swipe-bg {
+    opacity: 1;
+}
+
+.swipe-bg i {
+    color: white;
+    font-size: 1rem;
+}
+
+.swipe-front {
+    position: relative;
+    z-index: 10;
+    background: #0B0F19; 
+    border: 1px solid var(--glass-border);
+    border-radius: 16px;
+    transition: transform 0.1s linear; 
+}
+
+.swipe-front.snapping {
+    transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.swipe-front.deleting {
+    transition: transform 0.3s ease-out;
+    transform: translateX(-100%) !important;
+}
+
+.mobile-label {
+    font-size: 8px; 
+    font-weight: 800;
+    text-transform: uppercase;
+    color: #64748b;
+    letter-spacing: 0.08em;
+}
+
+.mono-numbers {
+    font-family: 'Inter', sans-serif !important;
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum";
+}
+
+/* Asset Type Text Colors */
+.text-type-cash { color: #f472b6; }
+.text-type-taxable { color: #34d399; }
+.text-type-pretax { color: #60a5fa; }
+.text-type-posttax { color: #c084fc; }
+.text-type-crypto { color: #94a3b8; }
+.text-type-metals { color: #facc15; }
+.text-type-hsa { color: #2dd4bf; }
+
+.pb-safe {
+    padding-bottom: var(--safe-area-inset-bottom);
+}
+
+/* Mobile Range Slider */
+.mobile-slider {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 100%;
+    height: 4px; 
+    background: #1e293b; 
+    border-radius: 99px;
+    outline: none;
+    margin: 6px 0;
+}
+
+.mobile-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 18px; 
+    height: 18px;
+    background: #fff; 
+    border-radius: 50%;
+    cursor: pointer;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.4);
+}
+
+/* Tighter summary sections */
+#mobile-assets-summary, #mobile-income-summary, #mobile-budget-summary, #mobile-benefits-summary {
+    margin-top: -0.5rem;
+}

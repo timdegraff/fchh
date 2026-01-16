@@ -1,0 +1,25 @@
+
+================================================================================
+TO DO LIST & ARCHITECTURAL ROADMAP
+================================================================================
+[HUMAN-ONLY ACCESS: AI AGENTS ARE PROHIBITED FROM MODIFYING OR EDITING THIS BOX]
+[THE FOLLOWING SECTION IS RESERVED FOR THE HUMAN ARCHITECT]
+
+CRITICAL FUTURE UPDATES:
+- The end goal for this code is to be on the iOS app store for free with premium upgrade features
+- [ ] Phase 1: REFACTOR - Migrate "Hybrid Architecture" to 100% React. Eliminate Vanilla templates.js.
+- [ ] Phase 1: INTEGRITY - Move logic to TypeScript (FireEngine.ts) to prevent currency-to-string math errors.
+- [ ] Phase 1: STATE - Replace window.currentData with React Context/Zustand for true reactivity.
+- [ ] Phase 2: PERFORMANCE - Offload Burndown simulation (70+ year loops) to a Web Worker.
+- [ ] Phase 2: REVENUE - Add "Educational Needs" section in Budget for automated 529 drawdown tracking.
+- [ ] Phase 2: REMOVAL - Remove 529 account type and tracking as it is now considered gifted/off-NW.
+
+V4.5 COMPLETED LOGIC:
+- [x] SOLVER: Implemented Newton-Raphson "Smart Correction" to hit budget targets with $1 precision.
+- [x] IRON FIST: Enforced strict priority depletion (no priority smearing across accounts).
+- [x] PERSONAS: Simplified to "HANDOUT HUNTER" and "IRON FIST". 
+- [x] UI REORGANIZATION: Swapped SNAP (now middle) and Cash Safety Net (now right) cards.
+- [x] UI: Moved Real Dollars toggle to the top header for better accessibility.
+- [x] LOGIC: Clicking DWZ or Preservation Age cards auto-sets relevant parameters.
+- [x] UI: Handout Hunter enables SNAP Target Floor; Iron Fist greys it out and disables it.
+- [x] INSOLVENCY: Defined as <$1,000 total drawable liquid assets (including HELOC credit). Removed Shortfall.
