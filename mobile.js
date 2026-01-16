@@ -66,12 +66,24 @@ function attachListeners() {
     // Profile Selection - Entry Point
     const guestBtn = document.getElementById('guest-btn');
     if (guestBtn) {
-        guestBtn.onclick = () => {
+        guestBtn.onclick = async () => {
             haptic();
+            // DIRECT LOAD: 45 Couple Profile
+            const data = PROFILE_45_COUPLE;
+            
+            localStorage.setItem('firecalc_data', JSON.stringify(data));
+            window.currentData = JSON.parse(JSON.stringify(data)); 
+            
             const login = document.getElementById('login-screen');
+            const app = document.getElementById('app-container');
             const modal = document.getElementById('profile-modal');
+            
             if (login) login.classList.add('hidden');
-            if (modal) modal.classList.remove('hidden');
+            if (modal) modal.classList.add('hidden');
+            if (app) app.classList.remove('hidden');
+            
+            await initializeData();
+            renderApp();
         };
     } else {
         console.warn("Guest button not found during attachListeners");
@@ -542,7 +554,7 @@ function initAssetChart(data) {
             responsive: true,
             maintainAspectRatio: false,
             cutout: '65%', 
-            layout: { padding: 40 },
+            layout: { padding: 60 }, // Increased padding for labels
             plugins: {
                 legend: { display: false },
                 tooltip: {
@@ -570,7 +582,10 @@ function initAssetChart(data) {
                         if (percent > 0.05) {
                             const model = element;
                             const midAngle = (model.startAngle + model.endAngle) / 2;
-                            const radius = model.outerRadius + 20; // Increased distance
+                            // Calculate variable radius to push horizontal labels out further
+                            const horizFactor = Math.abs(Math.cos(midAngle)) * 25; 
+                            const radius = model.outerRadius + 25 + horizFactor; 
+                            
                             const x = model.x + Math.cos(midAngle) * radius;
                             const y = model.y + Math.sin(midAngle) * radius;
 
