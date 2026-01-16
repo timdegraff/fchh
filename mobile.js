@@ -6,10 +6,11 @@ import { simulateProjection } from './burndown-engine.js';
 
 // State
 let activeTab = 'assets';
-let budgetMode = 'monthly'; // 'monthly' | 'annual'
+let budgetMode = 'annual'; // 'monthly' | 'annual' - Default to Annual per request for header
 let collapsedSections = {}; 
 let swipeStartX = 0;
 let currentSwipeEl = null;
+let assetChart = null;
 
 // --- BOOTSTRAP ---
 async function init() {
@@ -25,10 +26,15 @@ async function init() {
     attachListeners();
 }
 
+function haptic() {
+    if (navigator.vibrate) navigator.vibrate(5);
+}
+
 function attachListeners() {
     // Navigation
     document.querySelectorAll('.nav-item').forEach(btn => {
         btn.onclick = () => {
+            haptic();
             document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'));
             btn.classList.add('active');
             activeTab = btn.dataset.tab;
@@ -38,12 +44,14 @@ function attachListeners() {
 
     // Profile Selection
     document.getElementById('guest-btn').onclick = () => {
+        haptic();
         document.getElementById('login-screen').classList.add('hidden');
         document.getElementById('profile-modal').classList.remove('hidden');
     };
 
     document.querySelectorAll('[data-profile]').forEach(btn => {
         btn.onclick = async () => {
+            haptic();
             const pid = btn.dataset.profile;
             let data = BLANK_PROFILE;
             if (pid === '25') data = PROFILE_25_SINGLE;
@@ -116,27 +124,41 @@ function attachListeners() {
             val = parseFloat(val) || 0;
         } else if (target.type === 'checkbox') {
             val = target.checked;
+            haptic();
         }
 
         // Deep set
         let ref = window.currentData;
-        for (let i = 0; i < path.length - 1; i++) {
+        for (let i = 0; i < parts.length - 1; i++) {
+            if (!ref[path[i]]) ref[path[i]] = {}; // Safety
             ref = ref[path[i]];
         }
         ref[path[path.length - 1]] = val;
 
         window.debouncedAutoSave();
-        // Don't re-render whole app on keystroke, just header
+        // Don't re-render whole app on keystroke, just header/chart
         updateHeaderContext(); 
         if (activeTab === 'aid') updateAidHeader();
+        if (activeTab === 'assets' && assetChart) updateAssetChart(window.currentData);
     });
     
     // Change event for selects
     container.addEventListener('change', (e) => {
         if (e.target.tagName === 'SELECT') {
-            e.target.dispatchEvent(new Event('input', { bubbles: true }));
+            haptic();
+            // Manual update since select doesn't trigger 'input' bubbles the same way
+            const target = e.target;
+            const path = target.dataset.path.split('.');
+            let ref = window.currentData;
+            for (let i = 0; i < path.length - 1; i++) ref = ref[path[i]];
+            ref[path[path.length - 1]] = target.value;
+            
             // Re-render to update color coding if type changed
-            if (e.target.dataset.path?.includes('type')) renderApp();
+            if (e.target.dataset.path?.includes('type')) {
+                renderApp(); 
+            } else {
+                window.debouncedAutoSave();
+            }
         }
     });
 }
@@ -148,6 +170,27 @@ function renderApp() {
     const content = document.getElementById('mobile-content');
     content.innerHTML = '';
     
+    // FAB Logic
+    let fab = document.getElementById('fab-btn');
+    if (!fab) {
+        const fabCont = document.createElement('div');
+        fabCont.className = 'fab-container';
+        fabCont.innerHTML = `<button id="fab-btn" class="fab-btn"><i class="fas fa-plus"></i></button>`;
+        document.body.appendChild(fabCont);
+        fab = document.getElementById('fab-btn');
+    }
+    
+    // Configure FAB action
+    fab.onclick = () => {
+        haptic();
+        if (activeTab === 'assets') window.addItem('investments'); // Default to inv, maybe modal later
+        else if (activeTab === 'income') window.addItem('income');
+        else if (activeTab === 'budget') window.addItem('budget.expenses');
+        else if (activeTab === 'aid') window.addItem('benefits.dependents');
+    };
+    // Hide FAB on tabs where adding isn't primary
+    fab.parentElement.style.display = (activeTab === 'config' || activeTab === 'fire') ? 'none' : 'block';
+
     switch (activeTab) {
         case 'assets': renderAssets(content); break;
         case 'income': renderIncome(content); break;
@@ -158,6 +201,17 @@ function renderApp() {
     }
     
     attachSwipeHandlers();
+    
+    // Initialize Sortable for reordering
+    if (typeof Sortable !== 'undefined' && (activeTab === 'assets' || activeTab === 'budget')) {
+        document.querySelectorAll('.sortable-list').forEach(list => {
+            new Sortable(list, {
+                handle: '.drag-handle',
+                animation: 150,
+                onEnd: () => { haptic(); window.debouncedAutoSave(); } // Simple reorder trigger
+            });
+        });
+    }
 }
 
 function updateHeader() {
@@ -183,17 +237,6 @@ function updateHeader() {
     `;
 
     updateHeaderContext();
-
-    if (activeTab === 'budget') {
-        toolbar.classList.remove('hidden');
-        toolbar.innerHTML = `
-            <div class="toggle-switch-container w-full" data-state="${budgetMode === 'annual' ? 'right' : 'left'}" onclick="window.toggleBudgetMode()">
-                <div class="toggle-pill"></div>
-                <div class="toggle-option ${budgetMode === 'monthly' ? 'active' : ''}">Monthly</div>
-                <div class="toggle-option ${budgetMode === 'annual' ? 'active' : ''}">Annual</div>
-            </div>
-        `;
-    }
 }
 
 function updateHeaderContext() {
@@ -213,10 +256,23 @@ function updateHeaderContext() {
             <div class="font-black text-teal-400 text-lg tracking-tighter mono-numbers">${math.toSmartCompactCurrency(s.totalGrossIncome)}</div>
         `;
     } else if (activeTab === 'budget') {
-        const val = budgetMode === 'monthly' ? s.totalAnnualBudget / 12 : s.totalAnnualBudget;
+        // Budget Header: Savings & Expenses
+        const factor = budgetMode === 'monthly' ? 1/12 : 1;
+        const saved = s.totalAnnualSavings * factor;
+        const spent = s.totalAnnualBudget * factor;
+        const suffix = budgetMode === 'monthly' ? '/mo' : '/yr';
+        
         html = `
-            <div class="text-[9px] font-bold text-slate-500 uppercase tracking-widest">Total Spend</div>
-            <div class="font-black text-pink-500 text-lg tracking-tighter mono-numbers">${math.toCurrency(val, true)}</div>
+            <div class="flex gap-4 cursor-pointer" onclick="window.toggleBudgetMode()">
+                <div class="text-right">
+                    <div class="text-[8px] font-bold text-slate-500 uppercase tracking-widest">Savings</div>
+                    <div class="font-black text-emerald-400 text-sm tracking-tighter mono-numbers">${math.toSmartCompactCurrency(saved)}${suffix}</div>
+                </div>
+                <div class="text-right">
+                    <div class="text-[8px] font-bold text-slate-500 uppercase tracking-widest">Expenses</div>
+                    <div class="font-black text-pink-500 text-sm tracking-tighter mono-numbers">${math.toSmartCompactCurrency(spent)}${suffix}</div>
+                </div>
+            </div>
         `;
     } else if (activeTab === 'fire') {
         html = ''; // FIRE has summary in view
@@ -232,6 +288,15 @@ function updateHeaderContext() {
 function renderAssets(el) {
     const d = window.currentData;
     
+    el.innerHTML = `
+        <div class="chart-container">
+            <canvas id="assetDonutChart"></canvas>
+        </div>
+        <div id="assets-list-container"></div>
+    `;
+    
+    setTimeout(() => initAssetChart(d), 0);
+
     const getTypeColor = (type) => {
         const map = {
             'Cash': 'text-type-cash', 'Taxable': 'text-type-taxable', 'Pre-Tax (401k/IRA)': 'text-type-pretax',
@@ -244,19 +309,29 @@ function renderAssets(el) {
 
     const sections = [
         { title: 'Investments', icon: 'fa-chart-line', color: 'text-blue-400', data: d.investments, path: 'investments' },
+        { title: 'Private Equity & Options', icon: 'fa-briefcase', color: 'text-orange-400', data: d.stockOptions, path: 'stockOptions', isOption: true },
         { title: 'Real Estate', icon: 'fa-home', color: 'text-indigo-400', data: d.realEstate, path: 'realEstate', fields: ['value', 'mortgage'] },
         { title: 'HELOCs', icon: 'fa-university', color: 'text-red-400', data: d.helocs, path: 'helocs', fields: ['balance', 'limit'] },
         { title: 'Other Assets', icon: 'fa-car', color: 'text-teal-400', data: d.otherAssets, path: 'otherAssets', fields: ['value', 'loan'] },
         { title: 'Debts', icon: 'fa-credit-card', color: 'text-pink-400', data: d.debts, path: 'debts', fields: ['balance'] }
     ];
 
-    el.innerHTML = sections.map((sect) => {
+    document.getElementById('assets-list-container').innerHTML = sections.map((sect) => {
         // Calculate Net for Section
         let net = 0;
         (sect.data || []).forEach(item => {
-            if (sect.path === 'investments' || sect.path === 'otherAssets') net += math.fromCurrency(item.value) - math.fromCurrency(item.loan || 0);
-            else if (sect.path === 'realEstate') net += math.fromCurrency(item.value) - math.fromCurrency(item.mortgage);
-            else if (sect.path === 'helocs' || sect.path === 'debts') net -= math.fromCurrency(item.balance);
+            if (sect.isOption) {
+                const shares = parseFloat(item.shares) || 0;
+                const strike = math.fromCurrency(item.strikePrice);
+                const fmv = math.fromCurrency(item.currentPrice);
+                net += Math.max(0, (fmv - strike) * shares);
+            } else if (sect.path === 'investments' || sect.path === 'otherAssets') {
+                net += math.fromCurrency(item.value) - math.fromCurrency(item.loan || 0);
+            } else if (sect.path === 'realEstate') {
+                net += math.fromCurrency(item.value) - math.fromCurrency(item.mortgage);
+            } else if (sect.path === 'helocs' || sect.path === 'debts') {
+                net -= math.fromCurrency(item.balance);
+            }
         });
         const netColor = net >= 0 ? 'text-emerald-400' : 'text-red-400';
         const netDisplay = net !== 0 ? math.toSmartCompactCurrency(net) : '';
@@ -274,15 +349,16 @@ function renderAssets(el) {
                 </div>
             </div>
             <div class="collapsible-content ${collapsedSections[sect.title] ? '' : 'open'}">
-                <div class="p-3 space-y-3">
+                <div class="p-3 space-y-2 sortable-list">
                     ${(sect.data || []).map((item, i) => {
                         const typeClass = sect.path === 'investments' ? getTypeColor(item.type) : 'text-slate-400';
                         return `
-                        <div class="swipe-container rounded-xl">
+                        <div class="swipe-container">
                             <div class="swipe-actions">
                                 <button class="swipe-action-btn bg-red-600" onclick="window.removeItem('${sect.path}', ${i})">Delete</button>
                             </div>
-                            <div class="swipe-content bg-black/20 p-3 border border-white/5 rounded-xl flex items-center gap-3">
+                            <div class="swipe-content p-3 border border-white/5 flex items-center gap-3">
+                                <div class="drag-handle text-slate-600 px-1"><i class="fas fa-grip-vertical"></i></div>
                                 <div class="flex-grow space-y-2">
                                     <input data-path="${sect.path}.${i}.name" value="${item.name}" class="bg-transparent border-none p-0 text-xs font-bold text-white w-full placeholder:text-slate-600 focus:ring-0 uppercase tracking-tight">
                                     ${sect.path === 'investments' ? `
@@ -298,6 +374,12 @@ function renderAssets(el) {
                                         </select>
                                     </div>
                                     ` : ''}
+                                    ${sect.isOption ? `
+                                    <div class="flex gap-2">
+                                        <input data-path="${sect.path}.${i}.shares" type="number" value="${item.shares}" placeholder="# Shares" class="bg-slate-900 border border-white/10 rounded p-1 text-[10px] text-white w-20">
+                                        <input data-path="${sect.path}.${i}.strikePrice" data-type="currency" value="${math.toCurrency(item.strikePrice)}" placeholder="Strike" class="bg-slate-900 border border-white/10 rounded p-1 text-[10px] text-orange-400 w-20">
+                                    </div>
+                                    ` : ''}
                                 </div>
                                 <div class="text-right space-y-1">
                                     ${sect.path === 'investments' ? `
@@ -308,30 +390,106 @@ function renderAssets(el) {
                                                 value="${isBasisNA(item.type) ? 'N/A' : math.toCurrency(item.costBasis)}" 
                                                 class="bg-transparent border-none p-0 text-[10px] font-bold text-right text-blue-400 w-20 focus:ring-0 ${isBasisNA(item.type) ? 'opacity-30 pointer-events-none' : ''}">
                                         </div>
+                                    ` : (sect.isOption ? `
+                                        <input data-path="${sect.path}.${i}.currentPrice" data-type="currency" value="${math.toCurrency(item.currentPrice)}" class="bg-transparent border-none p-0 text-sm font-black text-right text-white w-28 focus:ring-0">
+                                        <span class="text-[8px] text-slate-500 font-bold uppercase block mt-1">Current FMV</span>
                                     ` : `
                                         <input data-path="${sect.path}.${i}.${sect.fields[0]}" data-type="currency" value="${math.toCurrency(item[sect.fields[0]])}" class="bg-transparent border-none p-0 text-sm font-black text-right text-white w-28 focus:ring-0">
                                         ${sect.fields[1] ? `<input data-path="${sect.path}.${i}.${sect.fields[1]}" data-type="currency" value="${math.toCurrency(item[sect.fields[1]])}" class="bg-transparent border-none p-0 text-[10px] font-bold text-right text-red-400 w-28 focus:ring-0 block mt-1">` : ''}
-                                    `}
+                                    `)}
                                 </div>
                             </div>
                         </div>`;
                     }).join('')}
-                     <button class="w-full py-3 border border-dashed border-white/10 rounded-xl text-[10px] font-bold uppercase tracking-widest text-slate-500 hover:bg-white/5" onclick="window.addItem('${sect.path}')">+ Add Item</button>
                 </div>
             </div>
         </div>`;
     }).join('');
 }
 
+function initAssetChart(data) {
+    const ctx = document.getElementById('assetDonutChart');
+    if (!ctx) return;
+    
+    // Aggregation
+    const totals = {};
+    const colorMap = {};
+    
+    // Investments
+    data.investments?.forEach(i => {
+        const val = math.fromCurrency(i.value);
+        if (val > 0) {
+            totals[i.type] = (totals[i.type] || 0) + val;
+            colorMap[i.type] = assetColors[i.type] || '#fff';
+        }
+    });
+    
+    // Options
+    const optVal = data.stockOptions?.reduce((s, x) => {
+        const sh = parseFloat(x.shares)||0;
+        const st = math.fromCurrency(x.strikePrice);
+        const fmv = math.fromCurrency(x.currentPrice);
+        return s + Math.max(0, (fmv - st) * sh);
+    }, 0) || 0;
+    if (optVal > 0) { totals['Stock Options'] = optVal; colorMap['Stock Options'] = assetColors['Stock Options']; }
+    
+    // Real Estate Equity
+    const reVal = data.realEstate?.reduce((s, r) => s + Math.max(0, math.fromCurrency(r.value) - math.fromCurrency(r.mortgage)), 0) || 0;
+    if (reVal > 0) { totals['Real Estate'] = reVal; colorMap['Real Estate'] = assetColors['Real Estate']; }
+    
+    // Sort
+    const labels = Object.keys(totals).sort((a,b) => totals[b] - totals[a]);
+    const values = labels.map(k => totals[k]);
+    const colors = labels.map(k => colorMap[k]);
+    
+    if (assetChart) assetChart.destroy();
+    
+    assetChart = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+            labels: labels,
+            datasets: [{
+                data: values,
+                backgroundColor: colors,
+                borderWidth: 0,
+                hoverOffset: 10
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            cutout: '70%',
+            layout: { padding: 20 },
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    callbacks: {
+                        label: (ctx) => ` ${ctx.label}: ${math.toSmartCompactCurrency(ctx.raw)}`
+                    },
+                    backgroundColor: '#1e293b',
+                    bodyFont: { family: 'Inter', weight: 'bold' }
+                }
+            }
+        }
+    });
+}
+
+function updateAssetChart(data) {
+    if (!assetChart) return;
+    // ... Re-aggregate logic similar to init ...
+    // Simplified update for brevity:
+    initAssetChart(data); 
+}
+
 function renderIncome(el) {
     const d = window.currentData;
     el.innerHTML = (d.income || []).map((inc, i) => `
         <div class="swipe-container rounded-xl mb-3">
-            <div class="swipe-actions">
+            <div class="swipe-actions rounded-xl overflow-hidden">
                 <button class="swipe-action-btn bg-slate-700" onclick="window.openAdvancedIncome(${i})">Settings</button>
                 <button class="swipe-action-btn bg-red-600" onclick="window.removeItem('income', ${i})">Delete</button>
             </div>
-            <div class="swipe-content mobile-card !mb-0">
+            <div class="swipe-content mobile-card !mb-0 rounded-xl overflow-hidden">
                 <div class="flex justify-between items-start mb-4 border-b border-white/5 pb-3">
                     <input data-path="income.${i}.name" value="${inc.name}" class="bg-transparent text-sm font-black text-white w-full border-none p-0 focus:ring-0 uppercase tracking-tight" placeholder="SOURCE NAME">
                     <label class="flex items-center gap-1.5">
@@ -339,13 +497,13 @@ function renderIncome(el) {
                         <span class="text-[8px] font-bold text-slate-500 uppercase">Retirement?</span>
                     </label>
                 </div>
-                <div class="grid grid-cols-2 gap-4 mb-4">
-                    <div>
+                <div class="flex gap-4 mb-4">
+                    <div class="flex-grow">
                         <label class="block text-[8px] font-bold text-slate-500 uppercase mb-1">Gross Annual</label>
                         <input data-path="income.${i}.amount" data-type="currency" value="${math.toCurrency(inc.isMonthly ? inc.amount * 12 : inc.amount)}" class="w-full p-2 bg-black/20 rounded-lg text-teal-400 font-black text-sm text-right">
                     </div>
-                     <div>
-                        <label class="block text-[8px] font-bold text-slate-500 uppercase mb-1">Growth %</label>
+                     <div class="w-32">
+                        <label class="block text-[8px] font-bold text-slate-500 uppercase mb-1">Annual Raise</label>
                         <div class="flex items-center bg-black/20 rounded-lg">
                             <button class="stepper-btn" onclick="window.stepValue('income.${i}.increase', -0.5)">-</button>
                             <input data-path="income.${i}.increase" data-type="percent" value="${inc.increase}%" class="w-full p-2 bg-transparent text-white font-bold text-sm text-center border-none focus:ring-0">
@@ -357,7 +515,10 @@ function renderIncome(el) {
                 <div class="bg-slate-800/50 p-3 rounded-xl border border-white/5">
                     <div class="grid grid-cols-3 gap-2">
                         <div>
-                            <span class="text-[8px] font-bold text-slate-400 uppercase block mb-1">401k %</span>
+                            <div class="flex items-center justify-center gap-1 mb-1">
+                                <span class="text-[8px] font-bold text-slate-400 uppercase">401k %</span>
+                                <i class="fas fa-exclamation-triangle text-yellow-500 text-[10px] hidden" id="warn-401k-${i}" onclick="alert('Exceeds IRS Limit')"></i>
+                            </div>
                             <div class="flex items-center bg-black/20 rounded-lg">
                                 <button class="stepper-btn" onclick="window.stepValue('income.${i}.contribution', -1)">-</button>
                                 <input data-path="income.${i}.contribution" data-type="percent" value="${inc.contribution}%" class="w-full py-1 bg-transparent text-blue-400 font-bold text-xs text-center border-none p-0 focus:ring-0">
@@ -365,7 +526,7 @@ function renderIncome(el) {
                             </div>
                         </div>
                         <div>
-                            <span class="text-[8px] font-bold text-slate-400 uppercase block mb-1">Match %</span>
+                            <span class="text-[8px] font-bold text-slate-400 uppercase block mb-1 text-center">Match %</span>
                             <div class="flex items-center bg-black/20 rounded-lg">
                                 <button class="stepper-btn" onclick="window.stepValue('income.${i}.match', -1)">-</button>
                                 <input data-path="income.${i}.match" data-type="percent" value="${inc.match}%" class="w-full py-1 bg-transparent text-white font-bold text-xs text-center border-none p-0 focus:ring-0">
@@ -373,7 +534,7 @@ function renderIncome(el) {
                             </div>
                         </div>
                         <div>
-                            <span class="text-[8px] font-bold text-slate-400 uppercase block mb-1">Bonus %</span>
+                            <span class="text-[8px] font-bold text-slate-400 uppercase block mb-1 text-center">Bonus %</span>
                             <div class="flex items-center bg-black/20 rounded-lg">
                                 <button class="stepper-btn" onclick="window.stepValue('income.${i}.bonusPct', -1)">-</button>
                                 <input data-path="income.${i}.bonusPct" data-type="percent" value="${inc.bonusPct}%" class="w-full py-1 bg-transparent text-white font-bold text-xs text-center border-none p-0 focus:ring-0">
@@ -384,7 +545,16 @@ function renderIncome(el) {
                 </div>
             </div>
         </div>
-    `).join('') + `<button class="w-full py-4 border border-dashed border-white/10 rounded-xl text-xs font-bold uppercase tracking-widest text-slate-500 mb-8" onclick="window.addItem('income')">+ Add Income Stream</button>`;
+    `).join('');
+    
+    // Check limits logic
+    d.income.forEach((inc, i) => {
+        const annual = inc.amount * (inc.isMonthly ? 12 : 1);
+        const limit = 23500; // Simplified
+        if ((annual * (inc.contribution/100)) > limit) {
+            document.getElementById(`warn-401k-${i}`)?.classList.remove('hidden');
+        }
+    });
 }
 
 function renderBudget(el) {
@@ -397,17 +567,27 @@ function renderBudget(el) {
         return `
         <div class="swipe-container">
             <div class="swipe-actions">
+                ${type === 'expenses' ? `
+                <button class="swipe-action-btn bg-slate-700 flex flex-col gap-1" onclick="window.toggleBudgetBool('${type}', ${i}, 'remainsInRetirement')">
+                    <span class="text-[8px] opacity-60">Retire?</span>
+                    <i class="fas ${item.remainsInRetirement ? 'fa-check text-emerald-400' : 'fa-times text-slate-500'}"></i>
+                </button>
+                <button class="swipe-action-btn bg-slate-800 flex flex-col gap-1" onclick="window.toggleBudgetBool('${type}', ${i}, 'isFixed')">
+                    <span class="text-[8px] opacity-60">Fixed?</span>
+                    <i class="fas ${item.isFixed ? 'fa-check text-blue-400' : 'fa-times text-slate-500'}"></i>
+                </button>
+                ` : `
+                <button class="swipe-action-btn bg-slate-700 flex flex-col gap-1" onclick="window.toggleBudgetBool('${type}', ${i}, 'remainsInRetirement')">
+                    <span class="text-[8px] opacity-60">Retire?</span>
+                    <i class="fas ${item.remainsInRetirement ? 'fa-check text-emerald-400' : 'fa-times text-slate-500'}"></i>
+                </button>
+                `}
                 <button class="swipe-action-btn bg-red-600" onclick="window.removeItem('budget.${type}', ${i})">Delete</button>
             </div>
             <div class="swipe-content bg-[#1e293b] border-b border-white/5 py-3 flex items-center justify-between">
+                <div class="drag-handle text-slate-600 px-2"><i class="fas fa-grip-vertical"></i></div>
                 <div class="flex-grow">
                      <input data-path="budget.${type}.${i}.${type === 'savings' ? 'type' : 'name'}" value="${type === 'savings' ? item.type : item.name}" class="bg-transparent border-none p-0 text-xs font-bold text-white w-full focus:ring-0">
-                     <div class="flex items-center gap-2 mt-1">
-                         <label class="flex items-center gap-1.5">
-                            <input type="checkbox" data-path="budget.${type}.${i}.remainsInRetirement" ${item.remainsInRetirement ? 'checked' : ''} class="rounded bg-slate-700 border-none w-3 h-3 text-emerald-500 focus:ring-0">
-                            <span class="text-[8px] font-bold text-slate-500 uppercase">Retirement?</span>
-                         </label>
-                     </div>
                 </div>
                 <div class="text-right">
                     <input data-path="budget.${type}.${i}.annual" data-type="currency" value="${math.toCurrency(val)}" class="bg-transparent border-none p-0 text-sm font-black text-right ${type === 'savings' ? 'text-teal-400' : 'text-pink-400'} w-28 focus:ring-0">
@@ -422,9 +602,8 @@ function renderBudget(el) {
                 <span class="font-bold text-white text-sm">Savings (After-Tax)</span>
             </div>
             <div class="collapsible-content open bg-black/20">
-                <div class="px-4">
+                <div class="px-4 sortable-list">
                     ${(d.budget?.savings || []).filter(s => !s.isLocked).map((s, i) => renderRow(s, i, 'savings')).join('')}
-                    <button class="w-full py-3 text-[10px] font-bold text-slate-500 uppercase" onclick="window.addItem('budget.savings')">+ Add Savings</button>
                 </div>
             </div>
         </div>
@@ -434,9 +613,8 @@ function renderBudget(el) {
                 <span class="font-bold text-white text-sm">Expenses</span>
             </div>
             <div class="collapsible-content open bg-black/20">
-                <div class="px-4">
+                <div class="px-4 sortable-list">
                      ${(d.budget?.expenses || []).map((s, i) => renderRow(s, i, 'expenses')).join('')}
-                     <button class="w-full py-3 text-[10px] font-bold text-slate-500 uppercase" onclick="window.addItem('budget.expenses')">+ Add Expense</button>
                 </div>
             </div>
         </div>
@@ -481,11 +659,19 @@ function renderConfig(el) {
         </div>
 
         <div class="mobile-card">
+            <h3 class="text-xs font-black text-white uppercase mb-4 border-b border-white/10 pb-2">Retirement Phases (Spend %)</h3>
+            ${slider('Go-Go (Age 60-70)', 'phaseGo1', 0.5, 1.5, 0.1, a.phaseGo1 || 1.0, '', 'text-purple-400')}
+            ${slider('Slow-Go (Age 70-80)', 'phaseGo2', 0.5, 1.5, 0.1, a.phaseGo2 || 0.9, '', 'text-purple-400')}
+            ${slider('No-Go (Age 80+)', 'phaseGo3', 0.5, 1.5, 0.1, a.phaseGo3 || 0.8, '', 'text-purple-400')}
+        </div>
+
+        <div class="mobile-card">
             <h3 class="text-xs font-black text-white uppercase mb-4 border-b border-white/10 pb-2">Market</h3>
             ${slider('Stocks (APY)', 'stockGrowth', 0, 15, 0.5, a.stockGrowth, '%', 'text-blue-400')}
             ${slider('Crypto (APY)', 'cryptoGrowth', 0, 15, 0.5, a.cryptoGrowth, '%', 'text-slate-400')}
             ${slider('Real Estate (APY)', 'realEstateGrowth', 0, 10, 0.5, a.realEstateGrowth, '%', 'text-indigo-400')}
             ${slider('Inflation', 'inflation', 0, 10, 0.1, a.inflation, '%', 'text-red-400')}
+            ${slider('HELOC Rate', 'helocRate', 0, 12, 0.25, a.helocRate || 7.0, '%', 'text-orange-400')}
         </div>
         
         <div class="mt-8 p-4 bg-red-900/10 border border-red-500/20 rounded-xl text-center">
@@ -548,7 +734,6 @@ function renderAid(el) {
                          <button onclick="window.removeItem('benefits.dependents', ${i})" class="text-slate-600 px-2"><i class="fas fa-times"></i></button>
                     </div>
                 `).join('')}
-                <button class="w-full py-2 bg-black/20 rounded-lg text-[10px] font-bold text-slate-400 uppercase" onclick="window.addItem('benefits.dependents')">+ Add Dependent</button>
             </div>
             
             <div class="grid grid-cols-2 gap-4">
@@ -625,35 +810,75 @@ function renderFire(el) {
                 </tbody>
             </table>
         </div>
+        
+        <div class="mt-8">
+            <div class="collapsible-section">
+                <div class="collapsible-header" onclick="window.toggleSection('trace')">
+                    <span class="font-bold text-white text-sm">Logic Trace</span>
+                    <i class="fas fa-chevron-down text-slate-500 transition-transform ${collapsedSections['trace'] ? '' : 'rotate-180'}"></i>
+                </div>
+                <div class="collapsible-content ${collapsedSections['trace'] ? '' : 'open'}">
+                    <div class="p-4 bg-black/20 font-mono text-[10px] text-slate-400 max-h-60 overflow-y-auto">
+                        <div class="flex items-center gap-2 mb-2">
+                            <span>Year:</span>
+                            <input type="number" id="trace-year-input" class="bg-slate-800 text-white w-16 p-1 rounded" value="${new Date().getFullYear()}">
+                        </div>
+                        <div id="mobile-trace-output"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
     `;
+    
+    // Init trace
+    setTimeout(() => {
+        const inp = document.getElementById('trace-year-input');
+        if (inp) {
+            inp.oninput = () => {
+                const y = parseInt(inp.value);
+                const r = results.find(x => x.year === y);
+                const out = document.getElementById('mobile-trace-output');
+                if (out) out.innerHTML = r ? r.traceLog.join('<br>') : 'No Data';
+            };
+            inp.dispatchEvent(new Event('input'));
+        }
+    }, 100);
 }
 
 
 // --- GLOBAL HELPERS ---
 
 window.toggleSection = (id) => {
+    haptic();
     collapsedSections[id] = !collapsedSections[id];
-    renderAssets(document.getElementById('mobile-content')); 
-    attachSwipeHandlers();
+    renderApp(); 
 };
 
 window.toggleBudgetMode = () => {
+    haptic();
     budgetMode = budgetMode === 'monthly' ? 'annual' : 'monthly';
     updateHeader(); 
     renderBudget(document.getElementById('mobile-content')); 
     attachSwipeHandlers();
 };
 
+window.toggleBudgetBool = (type, index, key) => {
+    haptic();
+    const item = window.currentData.budget[type][index];
+    item[key] = !item[key];
+    window.debouncedAutoSave();
+    renderApp();
+};
+
 window.addItem = (path) => {
+    haptic();
     let ref = window.currentData;
     const parts = path.split('.');
-    // Traverse down
     for (let i = 0; i < parts.length; i++) {
         if (!ref[parts[i]]) ref[parts[i]] = [];
         ref = ref[parts[i]];
     }
     
-    // Default objects
     if (path.includes('budget')) ref.push({ name: 'New Item', annual: 0, remainsInRetirement: true });
     else if (path === 'income') ref.push({ name: 'New Income', amount: 0, increase: 3, contribution: 0, match: 0, bonusPct: 0 });
     else if (path.includes('dependents')) ref.push({ name: 'Child', birthYear: new Date().getFullYear() });
@@ -664,6 +889,7 @@ window.addItem = (path) => {
 };
 
 window.removeItem = (path, index) => {
+    haptic();
     let ref = window.currentData;
     const parts = path.split('.');
     for (let i = 0; i < parts.length; i++) {
@@ -675,17 +901,19 @@ window.removeItem = (path, index) => {
 };
 
 window.stepValue = (path, step) => {
+    haptic();
     let ref = window.currentData;
     const parts = path.split('.');
     for (let i = 0; i < parts.length - 1; i++) ref = ref[parts[i]];
     const key = parts[parts.length - 1];
     let val = parseFloat(ref[key]) || 0;
     ref[key] = parseFloat((val + step).toFixed(1));
-    renderApp(); // Re-render to update
+    renderApp(); 
     window.debouncedAutoSave();
 };
 
 window.openAdvancedIncome = (index) => {
+    haptic();
     const inc = window.currentData.income[index];
     const modal = document.getElementById('advanced-modal');
     const content = document.getElementById('advanced-modal-content');
@@ -729,11 +957,13 @@ window.openAdvancedIncome = (index) => {
 };
 
 window.updateIncomeBool = (index, key, val) => {
+    haptic();
     window.currentData.income[index][key] = val;
     window.debouncedAutoSave();
 };
 
 window.toggleIncDedFreq = (index) => {
+    haptic();
     const inc = window.currentData.income[index];
     const wasMon = !!inc.incomeExpensesMonthly;
     // convert value
@@ -778,6 +1008,7 @@ function attachSwipeHandlers() {
                 // Width depends on number of buttons. 2 buttons ~140px, 1 button ~80px
                 const actionsWidth = el.querySelector('.swipe-actions').offsetWidth;
                 content.style.transform = `translateX(-${actionsWidth}px)`;
+                haptic();
             } else {
                 // Snap close
                 content.style.transform = 'translateX(0)';

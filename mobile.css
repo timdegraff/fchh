@@ -4,7 +4,7 @@
     --safe-top: env(safe-area-inset-top);
     --safe-bottom: env(safe-area-inset-bottom);
     --app-bg: #0B0F19;
-    --card-bg: rgba(30, 41, 59, 0.4);
+    --card-bg: #1e293b; /* Solid color to hide swipe actions */
     --active-tab-bg: rgba(255, 255, 255, 0.05);
 }
 
@@ -68,12 +68,15 @@ input:disabled {
     border-radius: 16px;
     margin-bottom: 8px;
     transition: all 0.2s;
+    position: sticky;
+    top: 0;
+    z-index: 20;
 }
 .collapsible-header.active {
     border-bottom-left-radius: 0;
     border-bottom-right-radius: 0;
     margin-bottom: 0;
-    background: rgba(30, 41, 59, 0.8);
+    background: rgba(30, 41, 59, 0.95);
     border-bottom: 1px solid rgba(255,255,255,0.05);
 }
 .collapsible-content {
@@ -105,6 +108,8 @@ input:disabled {
     position: relative;
     overflow: hidden;
     touch-action: pan-y; /* Allow vertical scrolling, handle horizontal in JS */
+    border-radius: 12px;
+    margin-bottom: 8px;
 }
 .swipe-actions {
     position: absolute;
@@ -113,6 +118,8 @@ input:disabled {
     right: 0;
     display: flex;
     z-index: 0;
+    border-radius: 12px;
+    overflow: hidden;
 }
 .swipe-action-btn {
     display: flex;
@@ -120,49 +127,41 @@ input:disabled {
     justify-content: center;
     color: white;
     font-weight: bold;
-    font-size: 12px;
+    font-size: 10px;
     text-transform: uppercase;
-    padding: 0 20px;
+    padding: 0 16px;
     height: 100%;
 }
 .swipe-content {
     position: relative;
     z-index: 10;
-    background: #1e293b; /* Must match bg to hide actions */
+    background: #1e293b; /* Must match bg to hide actions. Solid color. */
     transition: transform 0.2s ease-out;
+    border-radius: 12px;
 }
 
-/* Toggle Switch (Budget) */
-.toggle-switch-container {
-    background: rgba(0,0,0,0.3);
-    border-radius: 99px;
-    padding: 4px;
-    display: flex;
-    position: relative;
-    border: 1px solid rgba(255,255,255,0.1);
+/* Floating Action Button */
+.fab-container {
+    position: fixed;
+    bottom: calc(80px + var(--safe-bottom));
+    right: 20px;
+    z-index: 100;
 }
-.toggle-option {
-    flex: 1;
-    text-align: center;
-    font-size: 10px;
-    font-weight: 900;
-    text-transform: uppercase;
-    padding: 6px 0;
-    z-index: 2;
-    transition: color 0.2s;
-    color: #64748b;
-}
-.toggle-option.active { color: white; }
-.toggle-pill {
-    position: absolute;
-    top: 4px; left: 4px; bottom: 4px;
-    width: calc(50% - 4px);
+.fab-btn {
+    width: 56px;
+    height: 56px;
+    border-radius: 28px;
     background: #3b82f6;
-    border-radius: 99px;
-    transition: transform 0.2s cubic-bezier(0.4, 0.0, 0.2, 1);
+    color: white;
+    box-shadow: 0 10px 25px -5px rgba(59, 130, 246, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 24px;
+    transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
 }
-.toggle-switch-container[data-state="right"] .toggle-pill {
-    transform: translateX(100%);
+.fab-btn:active {
+    transform: scale(0.9);
 }
 
 /* Simplified Table (FIRE) */
@@ -216,3 +215,14 @@ input:disabled {
     transition: background 0.1s;
 }
 .stepper-btn:active { background: rgba(255,255,255,0.2); }
+
+/* Chart Container */
+.chart-container {
+    position: relative;
+    height: 220px;
+    width: 100%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin-bottom: 16px;
+}
