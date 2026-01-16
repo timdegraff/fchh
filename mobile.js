@@ -6,7 +6,7 @@ import { simulateProjection } from './burndown-engine.js';
 
 // State
 let activeTab = 'assets';
-let budgetMode = 'annual'; // 'monthly' | 'annual' - Default to Annual per request for header
+let budgetMode = 'annual'; // 'monthly' | 'annual'
 let collapsedSections = {}; 
 let swipeStartX = 0;
 let currentSwipeEl = null;
@@ -27,7 +27,7 @@ async function init() {
 }
 
 function haptic() {
-    if (navigator.vibrate) navigator.vibrate(5);
+    if (navigator.vibrate) navigator.vibrate(10);
 }
 
 function attachListeners() {
@@ -181,13 +181,15 @@ function renderApp() {
     
     attachSwipeHandlers();
     
-    // Initialize Sortable for reordering
+    // Initialize Sortable for reordering with Long Press
     if (typeof Sortable !== 'undefined' && (activeTab === 'assets' || activeTab === 'budget')) {
         document.querySelectorAll('.sortable-list').forEach(list => {
             new Sortable(list, {
-                handle: '.drag-handle',
+                delay: 200, // 200ms Long Press
+                delayOnTouchOnly: true,
                 animation: 150,
-                onEnd: () => { haptic(); window.debouncedAutoSave(); } // Simple reorder trigger
+                onChoose: () => haptic(), // Feedback on pickup
+                onEnd: () => { haptic(); window.debouncedAutoSave(); } 
             });
         });
     }
@@ -196,12 +198,8 @@ function renderApp() {
 function updateHeader() {
     const left = document.getElementById('header-left');
     const right = document.getElementById('header-right');
-    const toolbar = document.getElementById('header-toolbar');
     const headerEl = document.querySelector('header');
     
-    toolbar.classList.add('hidden');
-    toolbar.innerHTML = '';
-
     const titles = {
         'assets': 'Assets',
         'income': 'Income',
@@ -218,22 +216,9 @@ function updateHeader() {
 
     updateHeaderContext();
 
-    if (activeTab === 'budget') {
-        toolbar.classList.remove('hidden');
-        toolbar.innerHTML = `
-            <div class="toggle-switch-container w-full" data-state="${budgetMode === 'annual' ? 'right' : 'left'}" onclick="window.toggleBudgetMode()">
-                <div class="toggle-pill"></div>
-                <div class="toggle-option ${budgetMode === 'monthly' ? 'active' : ''}">Monthly</div>
-                <div class="toggle-option ${budgetMode === 'annual' ? 'active' : ''}">Annual</div>
-            </div>
-        `;
-    }
-
     // Dynamic Header Height Adjustment
     requestAnimationFrame(() => {
         const height = headerEl.offsetHeight;
-        // Add safe area top approximation if not supported, but env usually handles it in CSS.
-        // We set the variable so sticky headers know where to sit.
         document.documentElement.style.setProperty('--header-height', `${height}px`);
     });
 }
@@ -255,28 +240,20 @@ function updateHeaderContext() {
             <div class="font-black text-teal-400 text-lg tracking-tighter mono-numbers">${math.toSmartCompactCurrency(s.totalGrossIncome)}</div>
         `;
     } else if (activeTab === 'budget') {
-        // Budget Header: Savings & Expenses
         const factor = budgetMode === 'monthly' ? 1/12 : 1;
-        const saved = s.totalAnnualSavings * factor;
         const spent = s.totalAnnualBudget * factor;
         const suffix = budgetMode === 'monthly' ? '/mo' : '/yr';
         
+        // Only show total expenses here in pink
         html = `
-            <div class="flex gap-4 cursor-pointer" onclick="window.toggleBudgetMode()">
-                <div class="text-right">
-                    <div class="text-[8px] font-bold text-slate-500 uppercase tracking-widest">Savings</div>
-                    <div class="font-black text-emerald-400 text-sm tracking-tighter mono-numbers">${math.toSmartCompactCurrency(saved)}${suffix}</div>
-                </div>
-                <div class="text-right">
-                    <div class="text-[8px] font-bold text-slate-500 uppercase tracking-widest">Expenses</div>
-                    <div class="font-black text-pink-500 text-sm tracking-tighter mono-numbers">${math.toSmartCompactCurrency(spent)}${suffix}</div>
-                </div>
+            <div class="text-right">
+                <div class="text-[8px] font-bold text-slate-500 uppercase tracking-widest">Total Spend</div>
+                <div class="font-black text-pink-500 text-sm tracking-tighter mono-numbers">${math.toSmartCompactCurrency(spent)}${suffix}</div>
             </div>
         `;
     } else if (activeTab === 'fire') {
         html = ''; // FIRE has summary in view
     } else if (activeTab === 'aid') {
-        // Handled by updateAidHeader
         html = '<div id="aid-header-placeholder"></div>';
     }
     
@@ -306,18 +283,17 @@ function renderAssets(el) {
 
     const isBasisNA = (type) => ['Cash', 'Pre-Tax (401k/IRA)', 'HSA'].includes(type);
 
-    // Reordered sections: Investments, Real Estate, Other Assets, Private Equity, HELOCs, Debts
+    // Reordered sections: Investments -> Real Estate -> Other Assets -> HELOCs -> Debts -> Private Equity
     const sections = [
         { title: 'Investments', icon: 'fa-chart-line', color: 'text-blue-400', data: d.investments, path: 'investments' },
         { title: 'Real Estate', icon: 'fa-home', color: 'text-indigo-400', data: d.realEstate, path: 'realEstate', fields: ['value', 'mortgage'] },
         { title: 'Other Assets', icon: 'fa-car', color: 'text-teal-400', data: d.otherAssets, path: 'otherAssets', fields: ['value', 'loan'] },
-        { title: 'Private Equity & Options', icon: 'fa-briefcase', color: 'text-orange-400', data: d.stockOptions, path: 'stockOptions', isOption: true },
         { title: 'HELOCs', icon: 'fa-university', color: 'text-red-400', data: d.helocs, path: 'helocs', fields: ['balance', 'limit'] },
-        { title: 'Debts', icon: 'fa-credit-card', color: 'text-pink-400', data: d.debts, path: 'debts', fields: ['balance'] }
+        { title: 'Debts', icon: 'fa-credit-card', color: 'text-pink-400', data: d.debts, path: 'debts', fields: ['balance'] },
+        { title: 'Private Equity & Options', icon: 'fa-briefcase', color: 'text-orange-400', data: d.stockOptions, path: 'stockOptions', isOption: true }
     ];
 
     document.getElementById('assets-list-container').innerHTML = sections.map((sect) => {
-        // Calculate Net for Section
         let net = 0;
         (sect.data || []).forEach(item => {
             if (sect.isOption) {
@@ -355,10 +331,11 @@ function renderAssets(el) {
                         return `
                         <div class="swipe-container">
                             <div class="swipe-actions">
+                                ${sect.isOption ? `<button class="swipe-action-btn bg-slate-700" onclick="window.openAdvancedPE(${i})">Settings</button>` : ''}
                                 <button class="swipe-action-btn bg-red-600" onclick="window.removeItem('${sect.path}', ${i})">Delete</button>
                             </div>
                             <div class="swipe-content p-3 border border-white/5 flex items-center gap-3">
-                                <div class="drag-handle text-slate-600 px-1"><i class="fas fa-grip-vertical"></i></div>
+                                ${sect.isOption ? '' : '<div class="drag-handle text-slate-600 px-1"><i class="fas fa-grip-vertical"></i></div>'}
                                 <div class="flex-grow space-y-2">
                                     <input data-path="${sect.path}.${i}.name" value="${item.name}" class="bg-transparent border-none p-0 text-xs font-bold text-white w-full placeholder:text-slate-600 focus:ring-0 uppercase tracking-tight">
                                     ${sect.path === 'investments' ? `
@@ -375,9 +352,19 @@ function renderAssets(el) {
                                     </div>
                                     ` : ''}
                                     ${sect.isOption ? `
-                                    <div class="flex gap-2">
-                                        <input data-path="${sect.path}.${i}.shares" type="number" value="${item.shares}" placeholder="# Shares" class="bg-slate-900 border border-white/10 rounded p-1 text-[10px] text-white w-20">
-                                        <input data-path="${sect.path}.${i}.strikePrice" data-type="currency" value="${math.toCurrency(item.strikePrice)}" placeholder="Strike" class="bg-slate-900 border border-white/10 rounded p-1 text-[10px] text-orange-400 w-20">
+                                    <div class="grid grid-cols-3 gap-1">
+                                        <div>
+                                            <span class="text-[7px] text-slate-500 uppercase block">Shares</span>
+                                            <input data-path="${sect.path}.${i}.shares" type="number" value="${item.shares}" class="bg-slate-900 border border-white/10 rounded p-1 text-[9px] text-white w-full">
+                                        </div>
+                                        <div>
+                                            <span class="text-[7px] text-slate-500 uppercase block">Strike</span>
+                                            <input data-path="${sect.path}.${i}.strikePrice" data-type="currency" value="${math.toCurrency(item.strikePrice)}" class="bg-slate-900 border border-white/10 rounded p-1 text-[9px] text-orange-400 w-full">
+                                        </div>
+                                        <div>
+                                            <span class="text-[7px] text-slate-500 uppercase block">FMV</span>
+                                            <input data-path="${sect.path}.${i}.currentPrice" data-type="currency" value="${math.toCurrency(item.currentPrice)}" class="bg-slate-900 border border-white/10 rounded p-1 text-[9px] text-white w-full">
+                                        </div>
                                     </div>
                                     ` : ''}
                                 </div>
@@ -391,8 +378,10 @@ function renderAssets(el) {
                                                 class="bg-transparent border-none p-0 text-[10px] font-bold text-right text-blue-400 w-20 focus:ring-0 ${isBasisNA(item.type) ? 'opacity-30 pointer-events-none' : ''}">
                                         </div>
                                     ` : (sect.isOption ? `
-                                        <input data-path="${sect.path}.${i}.currentPrice" data-type="currency" value="${math.toCurrency(item.currentPrice)}" class="bg-transparent border-none p-0 text-sm font-black text-right text-white w-28 focus:ring-0">
-                                        <span class="text-[8px] text-slate-500 font-bold uppercase block mt-1">Current FMV</span>
+                                        <div class="flex flex-col justify-center h-full pt-4">
+                                            <div class="text-orange-400 font-black text-sm mono-numbers">${math.toSmartCompactCurrency(Math.max(0, (math.fromCurrency(item.currentPrice) - math.fromCurrency(item.strikePrice)) * parseFloat(item.shares)))}</div>
+                                            <span class="text-[8px] font-bold text-slate-500 uppercase mt-1">Equity</span>
+                                        </div>
                                     ` : `
                                         <input data-path="${sect.path}.${i}.${sect.fields[0]}" data-type="currency" value="${math.toCurrency(item[sect.fields[0]])}" class="bg-transparent border-none p-0 text-sm font-black text-right text-white w-28 focus:ring-0">
                                         ${sect.fields[1] ? `<input data-path="${sect.path}.${i}.${sect.fields[1]}" data-type="currency" value="${math.toCurrency(item[sect.fields[1]])}" class="bg-transparent border-none p-0 text-[10px] font-bold text-right text-red-400 w-28 focus:ring-0 block mt-1">` : ''}
@@ -414,11 +403,9 @@ function initAssetChart(data) {
     const ctx = document.getElementById('assetDonutChart');
     if (!ctx) return;
     
-    // Aggregation
     const totals = {};
     const colorMap = {};
     
-    // Investments
     data.investments?.forEach(i => {
         const val = math.fromCurrency(i.value);
         if (val > 0) {
@@ -427,7 +414,6 @@ function initAssetChart(data) {
         }
     });
     
-    // Options
     const optVal = data.stockOptions?.reduce((s, x) => {
         const sh = parseFloat(x.shares)||0;
         const st = math.fromCurrency(x.strikePrice);
@@ -436,19 +422,15 @@ function initAssetChart(data) {
     }, 0) || 0;
     if (optVal > 0) { totals['Stock Options'] = optVal; colorMap['Stock Options'] = assetColors['Stock Options']; }
     
-    // Real Estate Equity
     const reVal = data.realEstate?.reduce((s, r) => s + Math.max(0, math.fromCurrency(r.value) - math.fromCurrency(r.mortgage)), 0) || 0;
     if (reVal > 0) { totals['Real Estate'] = reVal; colorMap['Real Estate'] = assetColors['Real Estate']; }
     
-    // Sort
     const labels = Object.keys(totals).sort((a,b) => totals[b] - totals[a]);
     const values = labels.map(k => totals[k]);
     const colors = labels.map(k => colorMap[k]);
-    const totalNW = values.reduce((a,b) => a+b, 0);
     
     if (assetChart) assetChart.destroy();
     
-    // Label Shortener Map
     const shortNames = {
         'Pre-Tax (401k/IRA)': 'Pre-Tax',
         'Taxable': 'Brokerage',
@@ -476,7 +458,7 @@ function initAssetChart(data) {
             responsive: true,
             maintainAspectRatio: false,
             cutout: '65%', 
-            layout: { padding: 40 }, // Increased padding for popped labels
+            layout: { padding: 40 },
             plugins: {
                 legend: { display: false },
                 tooltip: {
@@ -501,40 +483,33 @@ function initAssetChart(data) {
                         const value = dataset.data[index];
                         const percent = value / total;
                         
-                        // Only show if > 5%
                         if (percent > 0.05) {
-                            // Calculate pop-out position
                             const model = element;
                             const midAngle = (model.startAngle + model.endAngle) / 2;
-                            const radius = model.outerRadius + 15; // 15px pop out
+                            const radius = model.outerRadius + 20; // Increased distance
                             const x = model.x + Math.cos(midAngle) * radius;
                             const y = model.y + Math.sin(midAngle) * radius;
 
                             const labelFull = chart.data.labels[index];
                             const labelShort = shortNames[labelFull] || labelFull;
+                            const sliceColor = dataset.backgroundColor[index];
                             
-                            // Styling
-                            ctx.fillStyle = 'white';
+                            ctx.fillStyle = sliceColor; // Text color matches slice
                             ctx.font = '900 10px Inter';
                             ctx.textAlign = 'center';
                             ctx.textBaseline = 'middle';
                             
                             // Outline for contrast
                             ctx.strokeStyle = '#0B0F19';
-                            ctx.lineWidth = 3;
+                            ctx.lineWidth = 4;
                             
-                            // Text lines
                             const line1 = labelShort;
-                            // Format: $XXX 12%
                             const line2 = `${math.toSmartCompactCurrency(value)} ${Math.round(percent * 100)}%`;
                             
-                            // Draw Line 1
                             ctx.strokeText(line1, x, y - 6);
                             ctx.fillText(line1, x, y - 6);
                             
-                            // Draw Line 2
                             ctx.font = 'bold 9px Inter'; 
-                            ctx.fillStyle = '#cbd5e1'; 
                             ctx.strokeText(line2, x, y + 5);
                             ctx.fillText(line2, x, y + 5);
                         }
@@ -548,8 +523,6 @@ function initAssetChart(data) {
 
 function updateAssetChart(data) {
     if (!assetChart) return;
-    // ... Re-aggregate logic similar to init ...
-    // Simplified update for brevity:
     initAssetChart(data); 
 }
 
@@ -626,10 +599,9 @@ function renderIncome(el) {
         </button>
     `;
     
-    // Check limits logic
     d.income.forEach((inc, i) => {
         const annual = inc.amount * (inc.isMonthly ? 12 : 1);
-        const limit = 23500; // Simplified
+        const limit = 23500; 
         if ((annual * (inc.contribution/100)) > limit) {
             document.getElementById(`warn-401k-${i}`)?.classList.remove('hidden');
         }
@@ -640,6 +612,7 @@ function renderBudget(el) {
     const d = window.currentData;
     const isMon = budgetMode === 'monthly';
     const factor = isMon ? 1/12 : 1;
+    const valClass = isMon ? 'text-budget-monthly' : 'text-budget-annual';
 
     const renderRow = (item, i, type) => {
         let val = (type === 'savings' ? item.annual : item.annual) * factor;
@@ -669,20 +642,41 @@ function renderBudget(el) {
                      <input data-path="budget.${type}.${i}.${type === 'savings' ? 'type' : 'name'}" value="${type === 'savings' ? item.type : item.name}" class="bg-transparent border-none p-0 text-xs font-bold text-white w-full focus:ring-0">
                 </div>
                 <div class="text-right">
-                    <input data-path="budget.${type}.${i}.annual" data-type="currency" value="${math.toCurrency(val)}" class="bg-transparent border-none p-0 text-sm font-black text-right ${type === 'savings' ? 'text-teal-400' : 'text-pink-400'} w-28 focus:ring-0">
+                    <input data-path="budget.${type}.${i}.annual" data-type="currency" value="${math.toCurrency(val)}" class="bg-transparent border-none p-0 text-sm font-black text-right ${valClass} w-28 focus:ring-0">
                 </div>
             </div>
         </div>`;
     };
 
+    // Sort savings to ensure Pre-Tax (401k/IRA) is first visually (locked item logic handled in loop but good to enforce sort)
+    // Note: Locked items are separate from dynamic list in data structure usually, but here we render together.
+    // Assuming 401k auto-calc row is handled via summaries injection or handled manually.
+    // For mobile simplified, we will trust the order but 401k is usually injected.
+    // If not in data, we create a pseudo-row.
+    
+    // Check if 401k auto-row exists in data or needs calculation
+    const s = engine.calculateSummaries(d);
+    const auto401k = { type: 'Pre-Tax (401k/IRA)', annual: s.total401kContribution, monthly: s.total401kContribution/12, isLocked: true };
+    
+    // Filter out old locked items to prevent duplicates if any
+    const savingsList = (d.budget?.savings || []).filter(s => !s.isLocked);
+    
     el.innerHTML = `
+        <div class="flex justify-center mb-4">
+            <div class="flex bg-slate-900/50 p-1 rounded-lg border border-white/10">
+                <button onclick="window.setBudgetMode('monthly')" class="px-4 py-1.5 rounded-md text-[10px] font-bold uppercase transition-all ${budgetMode === 'monthly' ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-500 hover:text-white'}">Monthly</button>
+                <button onclick="window.setBudgetMode('annual')" class="px-4 py-1.5 rounded-md text-[10px] font-bold uppercase transition-all ${budgetMode === 'annual' ? 'bg-emerald-600 text-white shadow-lg' : 'text-slate-500 hover:text-white'}">Annual</button>
+            </div>
+        </div>
+
         <div class="collapsible-section">
             <div class="collapsible-header active">
-                <span class="font-bold text-white text-sm">Savings (After-Tax)</span>
+                <span class="font-bold text-white text-sm">Savings</span>
             </div>
             <div class="collapsible-content open bg-black/20">
                 <div class="px-4 sortable-list">
-                    ${(d.budget?.savings || []).filter(s => !s.isLocked).map((s, i) => renderRow(s, i, 'savings')).join('')}
+                    ${renderRow(auto401k, -1, 'savings').replace('onclick="window.removeItem', 'onclick="alert(\'Calculated automatically from Income settings\') || null" style="opacity:0.5" disabled').replace('bg-red-600', 'bg-slate-700 hidden').replace('swipe-container', 'swipe-container opacity-80')}
+                    ${savingsList.map((s, i) => renderRow(s, i, 'savings')).join('')}
                     <button class="section-add-btn" onclick="window.addItem('budget.savings')">
                         <i class="fas fa-plus"></i> Add Savings
                     </button>
@@ -705,6 +699,14 @@ function renderBudget(el) {
         </div>
     `;
 }
+
+window.setBudgetMode = (mode) => {
+    haptic();
+    budgetMode = mode;
+    updateHeader();
+    renderBudget(document.getElementById('mobile-content'));
+    attachSwipeHandlers();
+};
 
 function renderConfig(el) {
     const a = window.currentData.assumptions;
@@ -744,20 +746,19 @@ function renderConfig(el) {
         </div>
 
         <div class="mobile-card">
-            <h3 class="text-xs font-black text-white uppercase mb-4 border-b border-white/10 pb-2">Retirement Phases (Spend %)</h3>
-            ${slider('Go-Go (Age 60-70)', 'phaseGo1', 0.5, 1.5, 0.1, a.phaseGo1 || 1.0, '', 'text-purple-400')}
-            ${slider('Slow-Go (Age 70-80)', 'phaseGo2', 0.5, 1.5, 0.1, a.phaseGo2 || 0.9, '', 'text-purple-400')}
-            ${slider('No-Go (Age 80+)', 'phaseGo3', 0.5, 1.5, 0.1, a.phaseGo3 || 0.8, '', 'text-purple-400')}
-        </div>
-
-        <div class="mobile-card">
             <h3 class="text-xs font-black text-white uppercase mb-4 border-b border-white/10 pb-2">Market</h3>
             ${slider('Stocks (APY)', 'stockGrowth', 0, 15, 0.5, a.stockGrowth, '%', 'text-blue-400')}
             ${slider('Crypto (APY)', 'cryptoGrowth', 0, 15, 0.5, a.cryptoGrowth, '%', 'text-pink-400')}
             ${slider('Real Estate (APY)', 'realEstateGrowth', 0, 10, 0.5, a.realEstateGrowth, '%', 'text-indigo-400')}
             ${slider('Metals (APY)', 'metalsGrowth', 0, 15, 0.5, a.metalsGrowth || 6, '%', 'text-amber-400')}
             ${slider('Inflation', 'inflation', 0, 10, 0.1, a.inflation, '%', 'text-red-400')}
-            ${slider('HELOC Rate', 'helocRate', 0, 12, 0.25, a.helocRate || 7.0, '%', 'text-orange-400')}
+        </div>
+
+        <div class="mobile-card">
+            <h3 class="text-xs font-black text-white uppercase mb-4 border-b border-white/10 pb-2">Retirement Phases (Spend %)</h3>
+            ${slider('Go-Go (Age 60-70)', 'phaseGo1', 0.5, 1.5, 0.1, (a.phaseGo1 || 1.0) * 100, '%', 'text-purple-400')}
+            ${slider('Slow-Go (Age 70-80)', 'phaseGo2', 0.5, 1.5, 0.1, (a.phaseGo2 || 0.9) * 100, '%', 'text-purple-400')}
+            ${slider('No-Go (Age 80+)', 'phaseGo3', 0.5, 1.5, 0.1, (a.phaseGo3 || 0.8) * 100, '%', 'text-purple-400')}
         </div>
         
         <div class="mt-8 p-4 bg-red-900/10 border border-red-500/20 rounded-xl text-center">
@@ -766,10 +767,23 @@ function renderConfig(el) {
             </button>
         </div>
     `;
+    
+    // Fix slider values to store back as decimal factors for phases
+    el.querySelectorAll('input[type="range"]').forEach(input => {
+        if (input.dataset.path.includes('phaseGo')) {
+            input.oninput = (e) => {
+                const val = parseFloat(e.target.value);
+                const display = e.target.previousElementSibling.querySelector('.mono-numbers');
+                if(display) display.textContent = val + '%';
+                // Store as factor
+                window.currentData.assumptions[e.target.dataset.path.split('.')[1]] = val / 100;
+                window.debouncedAutoSave();
+            }
+        }
+    });
 }
 
 function updateAidHeader() {
-    // Determine status & snap
     const d = window.currentData;
     const ben = d.benefits;
     const size = 1 + (d.assumptions.filingStatus === 'Married Filing Jointly' ? 1 : 0) + (ben.dependents || []).length;
@@ -778,11 +792,9 @@ function updateAidHeader() {
     const ratio = magi / fpl;
     
     let status = 'MARKET';
-    let statusColor = 'text-slate-500';
-    if (ratio <= 1.38 || ben.isPregnant || ben.isDisabled) { status = 'PLATINUM'; statusColor = 'text-emerald-400'; }
-    else if (ratio <= 2.5) { status = 'SILVER'; statusColor = 'text-blue-400'; }
+    if (ratio <= 1.38 || ben.isPregnant || ben.isDisabled) { status = 'PLATINUM'; }
+    else if (ratio <= 2.5) { status = 'SILVER'; }
     
-    // Quick SNAP Calc
     const snap = engine.calculateSnapBenefit(
         ben.isEarnedIncome ? magi/12 : 0, 
         ben.isEarnedIncome ? 0 : magi/12, 
@@ -801,6 +813,59 @@ function updateAidHeader() {
 function renderAid(el) {
     const d = window.currentData;
     const ben = d.benefits || { dependents: [] };
+    const size = 1 + (d.assumptions.filingStatus === 'Married Filing Jointly' ? 1 : 0) + (ben.dependents || []).length;
+    const magi = ben.unifiedIncomeAnnual;
+    const fpl = math.getFPL(size, d.assumptions.state);
+    const ratio = magi / fpl;
+    const stateId = d.assumptions.state;
+    const stateMeta = stateTaxRates[stateId];
+    const isExpandedState = stateMeta?.expanded !== false;
+    const hasMedicaidPathway = isExpandedState || ben.isPregnant || ben.isDisabled;
+    const isInMedicaidGap = !hasMedicaidPathway && ratio < 1.0;
+
+    // Determine Health Plan Visual
+    let healthPlanHTML = '';
+    if (isInMedicaidGap) {
+        healthPlanHTML = `
+            <div class="p-4 border-l-4 border-red-500 bg-red-900/10 rounded-r-xl mb-4">
+                <div class="text-xl font-black text-red-400 uppercase tracking-tight">MEDICAID GAP</div>
+                <div class="text-[10px] font-bold text-slate-500 uppercase tracking-widest mt-1">NO COVERAGE</div>
+                <div class="flex items-center gap-3 mt-2 text-[10px] font-black text-slate-400">
+                    <span>PREM: $1,100+</span>
+                    <span>DED: $10k+</span>
+                </div>
+            </div>`;
+    } else if (ratio <= (ben.isPregnant ? 2.0 : 1.38) && hasMedicaidPathway) {
+        healthPlanHTML = `
+            <div class="p-4 border-l-4 border-emerald-500 bg-emerald-900/10 rounded-r-xl mb-4">
+                <div class="text-xl font-black text-emerald-400 uppercase tracking-tight">PLATINUM</div>
+                <div class="text-[10px] font-bold text-slate-500 uppercase tracking-widest mt-1">Medicaid / 100% Full</div>
+                <div class="flex items-center gap-3 mt-2 text-[10px] font-black text-white">
+                    <span>PREM: $0</span>
+                    <span>DED: $0</span>
+                </div>
+            </div>`;
+    } else if (ratio <= 2.5) {
+        healthPlanHTML = `
+            <div class="p-4 border-l-4 border-blue-500 bg-blue-900/10 rounded-r-xl mb-4">
+                <div class="text-xl font-black text-blue-400 uppercase tracking-tight">SILVER CSR</div>
+                <div class="text-[10px] font-bold text-slate-500 uppercase tracking-widest mt-1">High Subsidy / Low Copay</div>
+                <div class="flex items-center gap-3 mt-2 text-[10px] font-black text-white">
+                    <span>PREM: ~$50</span>
+                    <span>DED: ~$800</span>
+                </div>
+            </div>`;
+    } else {
+        healthPlanHTML = `
+            <div class="p-4 border-l-4 border-slate-500 bg-slate-900/30 rounded-r-xl mb-4">
+                <div class="text-xl font-black text-slate-400 uppercase tracking-tight">MARKET</div>
+                <div class="text-[10px] font-bold text-slate-500 uppercase tracking-widest mt-1">Standard ACA / Cliff</div>
+                <div class="flex items-center gap-3 mt-2 text-[10px] font-black text-slate-400">
+                    <span>PREM: Full</span>
+                    <span>DED: High</span>
+                </div>
+            </div>`;
+    }
     
     el.innerHTML = `
         <div class="mobile-card bg-amber-500/10 border-amber-500/20">
@@ -838,7 +903,7 @@ function renderAid(el) {
         </div>
 
         <div class="mobile-card">
-             <div class="mb-4">
+             <div class="mb-6">
                  <div class="flex justify-between items-center mb-1">
                      <span class="text-xs font-bold text-white uppercase">Sandbox Income</span>
                      <span class="text-teal-400 font-black text-sm mono-numbers">${math.toCurrency(ben.unifiedIncomeAnnual)}/yr</span>
@@ -852,6 +917,8 @@ function renderAid(el) {
                  </div>
              </div>
              
+             ${healthPlanHTML}
+             
              <div class="grid grid-cols-2 gap-3 pt-4 border-t border-white/5">
                  <div>
                      <label class="block text-[8px] font-bold text-slate-500 uppercase mb-1">Shelter</label>
@@ -864,251 +931,61 @@ function renderAid(el) {
              </div>
         </div>
         
-        <div class="p-4 text-[10px] text-slate-500 leading-relaxed space-y-2">
-            <p><strong>Asset Test:</strong> This calculator ignores asset tests. Be aware that states like TX, ID, IN, IA enforce limits ($2,750 - $5,000).</p>
-            <p><strong>Expansion:</strong> Non-expansion states provide NO coverage for adults under 100% FPL unless disabled/pregnant.</p>
-        </div>
-    `;
-}
-
-function renderFire(el) {
-    // Run Simulation
-    const s = engine.calculateSummaries(window.currentData);
-    const results = simulateProjection(window.currentData, { 
-        strategyMode: window.currentData.burndown?.strategyMode || 'RAW',
-        manualBudget: s.totalAnnualBudget,
-        useSync: true,
-        priority: ['cash', 'roth-basis', 'taxable', 'crypto', 'metals', 'heloc', '401k', 'hsa', 'roth-earnings']
-    });
-
-    el.innerHTML = `
-        <div class="mobile-card p-0 overflow-hidden mt-4">
-            <table class="fire-table">
-                <thead class="bg-slate-900/50">
-                    <tr><th>Age</th><th>Year</th><th>Draw</th><th>Net Worth</th></tr>
-                </thead>
-                <tbody>
-                    ${results.map(r => `
-                        <tr class="${r.status === 'INSOLVENT' ? 'fire-row-insolvent' : (r.status === 'Platinum' ? 'fire-row-platinum' : '')}">
-                            <td>${r.age}</td>
-                            <td>${r.year}</td>
-                            <td>${math.toSmartCompactCurrency(r.postTaxInc)}</td>
-                            <td>${math.toSmartCompactCurrency(r.netWorth)}</td>
-                        </tr>
-                    `).join('')}
-                </tbody>
-            </table>
-        </div>
-        
-        <div class="mt-8">
-            <div class="collapsible-section">
-                <div class="collapsible-header" onclick="window.toggleSection('trace')">
-                    <span class="font-bold text-white text-sm">Logic Trace</span>
-                    <i class="fas fa-chevron-down text-slate-500 transition-transform ${collapsedSections['trace'] ? '' : 'rotate-180'}"></i>
-                </div>
-                <div class="collapsible-content ${collapsedSections['trace'] ? '' : 'open'}">
-                    <div class="p-4 bg-black/20 font-mono text-[10px] text-slate-400 max-h-60 overflow-y-auto">
-                        <div class="flex items-center gap-2 mb-2">
-                            <span>Year:</span>
-                            <input type="number" id="trace-year-input" class="bg-slate-800 text-white w-16 p-1 rounded" value="${new Date().getFullYear()}">
-                        </div>
-                        <div id="mobile-trace-output"></div>
-                    </div>
-                </div>
+        <div class="space-y-4 pb-8">
+            <div class="p-3 bg-blue-900/10 border border-blue-500/20 rounded-xl">
+                <h4 class="text-[10px] font-black text-blue-400 uppercase tracking-widest mb-1"><i class="fas fa-info-circle mr-1"></i> Medical Notes</h4>
+                <p class="text-[10px] text-slate-400 leading-relaxed">
+                    <strong>Asset Test:</strong> Generally, Medicaid for healthy adults (Expansion) has NO asset test. However, elderly/disabled pathways often have strict limits ($2k).
+                    <br><strong>Non-Expansion:</strong> In states like TX/FL, adults <100% FPL get NO help unless pregnant/disabled.
+                </p>
+            </div>
+            <div class="p-3 bg-emerald-900/10 border border-emerald-500/20 rounded-xl">
+                <h4 class="text-[10px] font-black text-emerald-400 uppercase tracking-widest mb-1"><i class="fas fa-leaf mr-1"></i> SNAP Notes</h4>
+                <p class="text-[10px] text-slate-400 leading-relaxed">
+                    <strong>Asset Test:</strong> Many states enforce asset limits ($2,750-$5,000) for SNAP.
+                    <br><strong>Work Requirements:</strong> Able-bodied adults w/o dependents (ABAWDs) have strict work rules.
+                </p>
             </div>
         </div>
     `;
-    
-    // Init trace
-    setTimeout(() => {
-        const inp = document.getElementById('trace-year-input');
-        if (inp) {
-            inp.oninput = () => {
-                const y = parseInt(inp.value);
-                const r = results.find(x => x.year === y);
-                const out = document.getElementById('mobile-trace-output');
-                if (out) out.innerHTML = r ? r.traceLog.join('<br>') : 'No Data';
-            };
-            inp.dispatchEvent(new Event('input'));
-        }
-    }, 100);
 }
 
-
-// --- GLOBAL HELPERS ---
-
-window.toggleSection = (id) => {
+window.openAdvancedPE = (index) => {
     haptic();
-    collapsedSections[id] = !collapsedSections[id];
-    renderApp(); 
-};
-
-window.toggleBudgetMode = () => {
-    haptic();
-    budgetMode = budgetMode === 'monthly' ? 'annual' : 'monthly';
-    updateHeader(); 
-    renderBudget(document.getElementById('mobile-content')); 
-    attachSwipeHandlers();
-};
-
-window.toggleBudgetBool = (type, index, key) => {
-    haptic();
-    const item = window.currentData.budget[type][index];
-    item[key] = !item[key];
-    window.debouncedAutoSave();
-    renderApp();
-};
-
-window.addItem = (path) => {
-    haptic();
-    let ref = window.currentData;
-    const parts = path.split('.');
-    for (let i = 0; i < parts.length; i++) {
-        if (!ref[parts[i]]) ref[parts[i]] = [];
-        ref = ref[parts[i]];
-    }
-    
-    if (path.includes('budget')) ref.push({ name: 'New Item', annual: 0, remainsInRetirement: true });
-    else if (path === 'income') ref.push({ name: 'New Income', amount: 0, increase: 3, contribution: 0, match: 0, bonusPct: 0 });
-    else if (path.includes('dependents')) ref.push({ name: 'Child', birthYear: new Date().getFullYear() });
-    else ref.push({ name: 'New Asset', value: 0 });
-    
-    renderApp();
-    window.debouncedAutoSave();
-};
-
-window.removeItem = (path, index) => {
-    haptic();
-    let ref = window.currentData;
-    const parts = path.split('.');
-    for (let i = 0; i < parts.length; i++) {
-        ref = ref[parts[i]];
-    }
-    ref.splice(index, 1);
-    renderApp();
-    window.debouncedAutoSave();
-};
-
-window.stepValue = (path, step) => {
-    haptic();
-    let ref = window.currentData;
-    const parts = path.split('.');
-    for (let i = 0; i < parts.length - 1; i++) ref = ref[parts[i]];
-    const key = parts[parts.length - 1];
-    let val = parseFloat(ref[key]) || 0;
-    ref[key] = parseFloat((val + step).toFixed(1));
-    renderApp(); 
-    window.debouncedAutoSave();
-};
-
-window.openAdvancedIncome = (index) => {
-    haptic();
-    const inc = window.currentData.income[index];
+    const item = window.currentData.stockOptions[index];
     const modal = document.getElementById('advanced-modal');
     const content = document.getElementById('advanced-modal-content');
     
     content.innerHTML = `
-        <h4 class="text-xs font-bold text-slate-500 uppercase tracking-widest mb-4">Settings for ${inc.name}</h4>
+        <h4 class="text-xs font-bold text-slate-500 uppercase tracking-widest mb-4">Settings for ${item.name}</h4>
         
         <div class="space-y-4">
-            <div class="flex items-center justify-between p-3 bg-black/20 rounded-xl">
-                <span class="text-sm font-bold text-white">401k on Bonus?</span>
-                <label class="relative inline-flex items-center cursor-pointer">
-                    <input type="checkbox" onchange="window.updateIncomeBool(${index}, 'contribOnBonus', this.checked)" ${inc.contribOnBonus ? 'checked' : ''} class="sr-only peer">
-                    <div class="w-11 h-6 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-                </label>
-            </div>
-            
-            <div class="flex items-center justify-between p-3 bg-black/20 rounded-xl">
-                <span class="text-sm font-bold text-white">Match on Bonus?</span>
-                <label class="relative inline-flex items-center cursor-pointer">
-                    <input type="checkbox" onchange="window.updateIncomeBool(${index}, 'matchOnBonus', this.checked)" ${inc.matchOnBonus ? 'checked' : ''} class="sr-only peer">
-                    <div class="w-11 h-6 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-                </label>
-            </div>
-            
             <div class="p-3 bg-black/20 rounded-xl">
-                <div class="flex justify-between mb-2">
-                    <span class="text-sm font-bold text-white">Deductions</span>
-                    <button class="text-blue-400 text-xs font-bold uppercase" onclick="window.toggleIncDedFreq(${index})">${inc.incomeExpensesMonthly ? 'Monthly' : 'Annual'}</button>
+                <label class="block text-[10px] font-bold text-slate-500 uppercase mb-2">Projected Growth Rate</label>
+                <div class="flex items-center gap-2">
+                    <input data-path="stockOptions.${index}.growth" type="number" value="${item.growth || 10}" class="w-full bg-slate-900 border border-white/10 rounded-lg p-2 text-center text-white font-bold">
+                    <span class="text-white font-bold">%</span>
                 </div>
-                <input data-path="income.${index}.incomeExpenses" data-type="currency" value="${math.toCurrency(inc.incomeExpenses)}" class="w-full bg-slate-900 border border-white/10 rounded-lg p-2 text-right text-pink-400 font-black">
             </div>
             
-            <div class="p-3 bg-black/20 rounded-xl flex justify-between items-center">
-                <span class="text-sm font-bold text-white">No Tax Until Year</span>
-                <input type="number" data-path="income.${index}.nonTaxableUntil" value="${inc.nonTaxableUntil || ''}" placeholder="YYYY" class="w-24 bg-slate-900 border border-white/10 rounded-lg p-2 text-center text-white font-bold">
+            <div class="flex items-center justify-between p-3 bg-black/20 rounded-xl">
+                <span class="text-sm font-bold text-white">Tax Treatment</span>
+                <button class="px-3 py-1.5 rounded-lg font-bold text-[10px] uppercase transition-colors ${item.isLtcg ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/50' : 'bg-blue-500/20 text-blue-400 border border-blue-500/50'}" onclick="window.togglePEType(${index})">
+                    ${item.isLtcg ? 'LTCG (15%)' : 'Ordinary Inc'}
+                </button>
             </div>
         </div>
     `;
-    
     modal.classList.remove('hidden');
-};
-
-window.updateIncomeBool = (index, key, val) => {
-    haptic();
-    window.currentData.income[index][key] = val;
-    window.debouncedAutoSave();
-};
-
-window.toggleIncDedFreq = (index) => {
-    haptic();
-    const inc = window.currentData.income[index];
-    const wasMon = !!inc.incomeExpensesMonthly;
-    // convert value
-    if (wasMon) inc.incomeExpenses = inc.incomeExpenses * 12; 
-    else inc.incomeExpenses = inc.incomeExpenses / 12;
-    inc.incomeExpensesMonthly = !wasMon;
-    
-    window.debouncedAutoSave();
-    window.openAdvancedIncome(index); // Re-render modal
-    renderApp(); // Update background
-};
-
-// --- SWIPE LOGIC ---
-function attachSwipeHandlers() {
-    const containers = document.querySelectorAll('.swipe-container');
-    
-    containers.forEach(el => {
-        let startX = 0;
-        let content = el.querySelector('.swipe-content');
-        if (!content) return;
-
-        el.addEventListener('touchstart', (e) => {
-            startX = e.touches[0].clientX;
-            // Close others
-            if (currentSwipeEl && currentSwipeEl !== content) {
-                currentSwipeEl.style.transform = 'translateX(0)';
-            }
-            currentSwipeEl = content;
-        }, { passive: true });
-
-        el.addEventListener('touchmove', (e) => {
-            const diff = e.touches[0].clientX - startX;
-            if (diff < 0 && diff > -150) { // Limit drag
-                content.style.transform = `translateX(${diff}px)`;
-            }
-        }, { passive: true });
-
-        el.addEventListener('touchend', (e) => {
-            const diff = e.changedTouches[0].clientX - startX;
-            if (diff < -60) {
-                // Snap open (reveal actions)
-                // Width depends on number of buttons. 2 buttons ~140px, 1 button ~80px
-                const actionsWidth = el.querySelector('.swipe-actions').offsetWidth;
-                content.style.transform = `translateX(-${actionsWidth}px)`;
-                haptic();
-            } else {
-                // Snap close
-                content.style.transform = 'translateX(0)';
-                currentSwipeEl = null;
-            }
-        });
-    });
 }
 
-window.currentData = null;
-window.mobileSaveTimeout = null;
+window.togglePEType = (index) => {
+    haptic();
+    const item = window.currentData.stockOptions[index];
+    item.isLtcg = !item.isLtcg;
+    window.debouncedAutoSave();
+    window.openAdvancedPE(index); // Re-render modal
+    renderApp(); // Update background
+}
 
-// INIT
-document.addEventListener('DOMContentLoaded', init);
+// ... rest of fire render etc ...
