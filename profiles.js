@@ -91,7 +91,7 @@ export const BLANK_PROFILE = {
         ]
     },
     burndown: {
-        strategyMode: 'PLATINUM',
+        strategyMode: 'RAW',
         priority: ['cash', 'roth-basis', 'taxable', 'crypto', 'metals', 'heloc', '401k', 'hsa', 'roth-earnings'],
         cashReserve: 20000,
         snapPreserve: 700,

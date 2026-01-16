@@ -9,6 +9,9 @@ import { BLANK_PROFILE } from './profiles.js';
 window.currentData = null;
 window.saveTimeout = null;
 
+// Increment this to force a reset on user browsers for significant data structure changes
+const DATA_VERSION = '4.6'; 
+
 export async function initializeData() {
     try {
         // 1. Memory Check
@@ -18,10 +21,17 @@ export async function initializeData() {
             return true;
         }
 
-        // 2. Storage Check
+        // 2. Version Check & Storage Access
         let local = null;
         try {
-            local = localStorage.getItem('firecalc_data');
+            const storedVersion = localStorage.getItem('firecalc_data_version');
+            if (storedVersion !== DATA_VERSION) {
+                console.log("Data version mismatch. Resetting to defaults.");
+                localStorage.removeItem('firecalc_data');
+                localStorage.setItem('firecalc_data_version', DATA_VERSION);
+            } else {
+                local = localStorage.getItem('firecalc_data');
+            }
         } catch (e) {
             console.warn("Local storage access blocked or failed.");
         }
@@ -30,9 +40,11 @@ export async function initializeData() {
             window.currentData = JSON.parse(local);
             console.log("Data loaded from storage.");
         } else {
-            // 3. FORCE DEFAULT
-            console.warn("No data found. Seeding default profile.");
+            // 3. FORCE DEFAULT (Blank/Draft Profile)
+            console.warn("No data found or forced reset. Seeding default profile.");
             window.currentData = JSON.parse(JSON.stringify(BLANK_PROFILE));
+            // Ensure version is set for the new default
+            localStorage.setItem('firecalc_data_version', DATA_VERSION);
         }
 
         loadUserDataIntoUI();

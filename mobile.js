@@ -1,6 +1,6 @@
 import { initializeData, autoSave, forceSyncData } from './data.js';
 import { math, engine, assetColors } from './utils.js';
-import { PROFILE_25_SINGLE, PROFILE_45_COUPLE, PROFILE_55_RETIREE } from './profiles.js';
+import { PROFILE_25_SINGLE, PROFILE_45_COUPLE, PROFILE_55_RETIREE, BLANK_PROFILE } from './profiles.js';
 import { simulateProjection } from './burndown-engine.js'; // Direct engine access
 
 // State
@@ -42,8 +42,9 @@ function attachListeners() {
     document.querySelectorAll('[data-profile]').forEach(btn => {
         btn.onclick = async () => {
             const pid = btn.dataset.profile;
-            let data = PROFILE_45_COUPLE;
+            let data = BLANK_PROFILE;
             if (pid === '25') data = PROFILE_25_SINGLE;
+            if (pid === '45') data = PROFILE_45_COUPLE;
             if (pid === '55') data = PROFILE_55_RETIREE;
             
             localStorage.setItem('firecalc_data', JSON.stringify(data));
@@ -411,7 +412,7 @@ function renderFire(el) {
     // Run Simulation
     const s = engine.calculateSummaries(window.currentData);
     const results = simulateProjection(window.currentData, { 
-        strategyMode: window.currentData.burndown?.strategyMode || 'PLATINUM',
+        strategyMode: window.currentData.burndown?.strategyMode || 'RAW',
         manualBudget: s.totalAnnualBudget,
         useSync: true,
         priority: ['cash', 'roth-basis', 'taxable', 'crypto', 'metals', 'heloc', '401k', 'hsa', 'roth-earnings']

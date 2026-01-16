@@ -79,7 +79,8 @@ export function solveIronFist(ctx) {
         let low = 0, high = av, bestDraw = 0;
         const bR = (['taxable', 'crypto', 'metals'].includes(pk) && startOfYearBal[pk] > 0) ? startOfYearBal[pk+'Basis'] / startOfYearBal[pk] : 1;
 
-        for (let j = 0; j < 15; j++) {
+        // Increased iterations from 15 to 30 to ensure precision on large balances ($10M+ accounts)
+        for (let j = 0; j < 30; j++) {
             let testDraw = (low + high) / 2;
             let testOrd = runningOrd + (pk === '401k' ? testDraw : 0);
             let testLtcg = runningLtcg + (['taxable', 'crypto'].includes(pk) ? testDraw * (1 - bR) : 0);
