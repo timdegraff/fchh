@@ -14,20 +14,40 @@ let assetChart = null;
 
 // --- BOOTSTRAP ---
 async function init() {
+    console.log("Mobile App Initializing...");
     const hasData = localStorage.getItem('firecalc_data');
-    if (!hasData) {
-        document.getElementById('login-screen').classList.remove('hidden');
-    } else {
-        await initializeData();
-        document.getElementById('login-screen').classList.add('hidden');
-        document.getElementById('app-container').classList.remove('hidden');
-        renderApp();
-    }
+    
+    // Always attach listeners first so buttons work even if data load fails
     attachListeners();
+
+    if (!hasData) {
+        const login = document.getElementById('login-screen');
+        if (login) login.classList.remove('hidden');
+    } else {
+        try {
+            await initializeData();
+            const login = document.getElementById('login-screen');
+            const app = document.getElementById('app-container');
+            if (login) login.classList.add('hidden');
+            if (app) app.classList.remove('hidden');
+            renderApp();
+        } catch (e) {
+            console.error("Data load failed", e);
+            // Fallback to login screen if data is corrupt
+            const login = document.getElementById('login-screen');
+            if (login) login.classList.remove('hidden');
+        }
+    }
 }
 
 function haptic() {
-    if (navigator.vibrate) navigator.vibrate(10);
+    try {
+        if (navigator && navigator.vibrate) {
+            navigator.vibrate(10);
+        }
+    } catch (e) {
+        // Ignore haptic errors
+    }
 }
 
 function attachListeners() {
@@ -42,12 +62,19 @@ function attachListeners() {
         };
     });
 
-    // Profile Selection
-    document.getElementById('guest-btn').onclick = () => {
-        haptic();
-        document.getElementById('login-screen').classList.add('hidden');
-        document.getElementById('profile-modal').classList.remove('hidden');
-    };
+    // Profile Selection - Entry Point
+    const guestBtn = document.getElementById('guest-btn');
+    if (guestBtn) {
+        guestBtn.onclick = () => {
+            haptic();
+            const login = document.getElementById('login-screen');
+            const modal = document.getElementById('profile-modal');
+            if (login) login.classList.add('hidden');
+            if (modal) modal.classList.remove('hidden');
+        };
+    } else {
+        console.warn("Guest button not found during attachListeners");
+    }
 
     document.querySelectorAll('[data-profile]').forEach(btn => {
         btn.onclick = async () => {
@@ -61,8 +88,12 @@ function attachListeners() {
             
             localStorage.setItem('firecalc_data', JSON.stringify(data));
             window.currentData = JSON.parse(JSON.stringify(data)); 
-            document.getElementById('profile-modal').classList.add('hidden');
-            document.getElementById('app-container').classList.remove('hidden');
+            
+            const modal = document.getElementById('profile-modal');
+            const app = document.getElementById('app-container');
+            if (modal) modal.classList.add('hidden');
+            if (app) app.classList.remove('hidden');
+            
             await initializeData();
             renderApp();
         };
@@ -70,6 +101,7 @@ function attachListeners() {
 
     // Global Input Handler
     const container = document.getElementById('mobile-content');
+    if (!container) return;
     
     // Focus: Select all, strip units for editing
     container.addEventListener('focusin', (e) => {
@@ -168,6 +200,7 @@ function attachListeners() {
 function renderApp() {
     updateHeader();
     const content = document.getElementById('mobile-content');
+    if (!content) return;
     content.innerHTML = '';
     
     switch (activeTab) {
@@ -200,6 +233,8 @@ function updateHeader() {
     const right = document.getElementById('header-right');
     const headerEl = document.querySelector('header');
     
+    if (!left || !headerEl) return;
+
     const titles = {
         'assets': 'Assets',
         'income': 'Income',
@@ -225,6 +260,8 @@ function updateHeader() {
 
 function updateHeaderContext() {
     const right = document.getElementById('header-right');
+    if (!right || !window.currentData) return;
+    
     const s = engine.calculateSummaries(window.currentData);
     
     let html = '';
@@ -804,6 +841,7 @@ function updateAidHeader() {
     );
 
     const right = document.getElementById('header-right');
+    if (!right) return;
     right.innerHTML = `
         <div class="text-[9px] font-bold text-slate-500 uppercase tracking-widest">${status}</div>
         <div class="font-black text-emerald-400 text-lg tracking-tighter mono-numbers">${math.toCurrency(snap)}/mo</div>
@@ -950,42 +988,249 @@ function renderAid(el) {
     `;
 }
 
-window.openAdvancedPE = (index) => {
+function renderFire(el) {
+    // Run Simulation
+    if (!window.currentData) return;
+    const s = engine.calculateSummaries(window.currentData);
+    const results = simulateProjection(window.currentData, { 
+        strategyMode: window.currentData.burndown?.strategyMode || 'RAW',
+        manualBudget: s.totalAnnualBudget,
+        useSync: true,
+        priority: ['cash', 'roth-basis', 'taxable', 'crypto', 'metals', 'heloc', '401k', 'hsa', 'roth-earnings']
+    });
+
+    el.innerHTML = `
+        <div class="mobile-card p-0 overflow-hidden mt-4">
+            <table class="fire-table">
+                <thead class="bg-slate-900/50">
+                    <tr><th>Age</th><th>Year</th><th>Draw</th><th>Net Worth</th></tr>
+                </thead>
+                <tbody>
+                    ${results.map(r => `
+                        <tr class="${r.status === 'INSOLVENT' ? 'fire-row-insolvent' : (r.status === 'Platinum' ? 'fire-row-platinum' : '')}">
+                            <td>${r.age}</td>
+                            <td>${r.year}</td>
+                            <td>${math.toSmartCompactCurrency(r.postTaxInc)}</td>
+                            <td>${math.toSmartCompactCurrency(r.netWorth)}</td>
+                        </tr>
+                    `).join('')}
+                </tbody>
+            </table>
+        </div>
+        
+        <div class="mt-8">
+            <div class="collapsible-section">
+                <div class="collapsible-header" onclick="window.toggleSection('trace')">
+                    <span class="font-bold text-white text-sm">Logic Trace</span>
+                    <i class="fas fa-chevron-down text-slate-500 transition-transform ${collapsedSections['trace'] ? '' : 'rotate-180'}"></i>
+                </div>
+                <div class="collapsible-content ${collapsedSections['trace'] ? '' : 'open'}">
+                    <div class="p-4 bg-black/20 font-mono text-[10px] text-slate-400 max-h-60 overflow-y-auto">
+                        <div class="flex items-center gap-2 mb-2">
+                            <span>Year:</span>
+                            <input type="number" id="trace-year-input" class="bg-slate-800 text-white w-16 p-1 rounded" value="${new Date().getFullYear()}">
+                        </div>
+                        <div id="mobile-trace-output"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    // Init trace
+    setTimeout(() => {
+        const inp = document.getElementById('trace-year-input');
+        if (inp) {
+            inp.oninput = () => {
+                const y = parseInt(inp.value);
+                const r = results.find(x => x.year === y);
+                const out = document.getElementById('mobile-trace-output');
+                if (out) out.innerHTML = r ? r.traceLog.join('<br>') : 'No Data';
+            };
+            inp.dispatchEvent(new Event('input'));
+        }
+    }, 100);
+}
+
+
+// --- GLOBAL HELPERS ---
+
+window.toggleSection = (id) => {
     haptic();
-    const item = window.currentData.stockOptions[index];
+    collapsedSections[id] = !collapsedSections[id];
+    renderApp(); 
+};
+
+window.toggleBudgetMode = () => {
+    haptic();
+    budgetMode = budgetMode === 'monthly' ? 'annual' : 'monthly';
+    updateHeader(); 
+    renderBudget(document.getElementById('mobile-content')); 
+    attachSwipeHandlers();
+};
+
+window.toggleBudgetBool = (type, index, key) => {
+    haptic();
+    const item = window.currentData.budget[type][index];
+    item[key] = !item[key];
+    window.debouncedAutoSave();
+    renderApp();
+};
+
+window.addItem = (path) => {
+    haptic();
+    let ref = window.currentData;
+    const parts = path.split('.');
+    for (let i = 0; i < parts.length; i++) {
+        if (!ref[parts[i]]) ref[parts[i]] = [];
+        ref = ref[parts[i]];
+    }
+    
+    if (path.includes('budget')) ref.push({ name: 'New Item', annual: 0, remainsInRetirement: true });
+    else if (path === 'income') ref.push({ name: 'New Income', amount: 0, increase: 3, contribution: 0, match: 0, bonusPct: 0 });
+    else if (path.includes('dependents')) ref.push({ name: 'Child', birthYear: new Date().getFullYear() });
+    else ref.push({ name: 'New Asset', value: 0 });
+    
+    renderApp();
+    window.debouncedAutoSave();
+};
+
+window.removeItem = (path, index) => {
+    haptic();
+    let ref = window.currentData;
+    const parts = path.split('.');
+    for (let i = 0; i < parts.length; i++) {
+        ref = ref[parts[i]];
+    }
+    ref.splice(index, 1);
+    renderApp();
+    window.debouncedAutoSave();
+};
+
+window.stepValue = (path, step) => {
+    haptic();
+    let ref = window.currentData;
+    const parts = path.split('.');
+    for (let i = 0; i < parts.length - 1; i++) ref = ref[parts[i]];
+    const key = parts[parts.length - 1];
+    let val = parseFloat(ref[key]) || 0;
+    ref[key] = parseFloat((val + step).toFixed(1));
+    renderApp(); 
+    window.debouncedAutoSave();
+};
+
+window.openAdvancedIncome = (index) => {
+    haptic();
+    const inc = window.currentData.income[index];
     const modal = document.getElementById('advanced-modal');
     const content = document.getElementById('advanced-modal-content');
     
     content.innerHTML = `
-        <h4 class="text-xs font-bold text-slate-500 uppercase tracking-widest mb-4">Settings for ${item.name}</h4>
+        <h4 class="text-xs font-bold text-slate-500 uppercase tracking-widest mb-4">Settings for ${inc.name}</h4>
         
         <div class="space-y-4">
-            <div class="p-3 bg-black/20 rounded-xl">
-                <label class="block text-[10px] font-bold text-slate-500 uppercase mb-2">Projected Growth Rate</label>
-                <div class="flex items-center gap-2">
-                    <input data-path="stockOptions.${index}.growth" type="number" value="${item.growth || 10}" class="w-full bg-slate-900 border border-white/10 rounded-lg p-2 text-center text-white font-bold">
-                    <span class="text-white font-bold">%</span>
-                </div>
+            <div class="flex items-center justify-between p-3 bg-black/20 rounded-xl">
+                <span class="text-sm font-bold text-white">401k on Bonus?</span>
+                <label class="relative inline-flex items-center cursor-pointer">
+                    <input type="checkbox" onchange="window.updateIncomeBool(${index}, 'contribOnBonus', this.checked)" ${inc.contribOnBonus ? 'checked' : ''} class="sr-only peer">
+                    <div class="w-11 h-6 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                </label>
             </div>
             
             <div class="flex items-center justify-between p-3 bg-black/20 rounded-xl">
-                <span class="text-sm font-bold text-white">Tax Treatment</span>
-                <button class="px-3 py-1.5 rounded-lg font-bold text-[10px] uppercase transition-colors ${item.isLtcg ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/50' : 'bg-blue-500/20 text-blue-400 border border-blue-500/50'}" onclick="window.togglePEType(${index})">
-                    ${item.isLtcg ? 'LTCG (15%)' : 'Ordinary Inc'}
-                </button>
+                <span class="text-sm font-bold text-white">Match on Bonus?</span>
+                <label class="relative inline-flex items-center cursor-pointer">
+                    <input type="checkbox" onchange="window.updateIncomeBool(${index}, 'matchOnBonus', this.checked)" ${inc.matchOnBonus ? 'checked' : ''} class="sr-only peer">
+                    <div class="w-11 h-6 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                </label>
+            </div>
+            
+            <div class="p-3 bg-black/20 rounded-xl">
+                <div class="flex justify-between mb-2">
+                    <span class="text-sm font-bold text-white">Deductions</span>
+                    <button class="text-blue-400 text-xs font-bold uppercase" onclick="window.toggleIncDedFreq(${index})">${inc.incomeExpensesMonthly ? 'Monthly' : 'Annual'}</button>
+                </div>
+                <input data-path="income.${index}.incomeExpenses" data-type="currency" value="${math.toCurrency(inc.incomeExpenses)}" class="w-full bg-slate-900 border border-white/10 rounded-lg p-2 text-right text-pink-400 font-black">
+            </div>
+            
+            <div class="p-3 bg-black/20 rounded-xl flex justify-between items-center">
+                <span class="text-sm font-bold text-white">No Tax Until Year</span>
+                <input type="number" data-path="income.${index}.nonTaxableUntil" value="${inc.nonTaxableUntil || ''}" placeholder="YYYY" class="w-24 bg-slate-900 border border-white/10 rounded-lg p-2 text-center text-white font-bold">
             </div>
         </div>
     `;
+    
     modal.classList.remove('hidden');
-}
+};
 
-window.togglePEType = (index) => {
+window.updateIncomeBool = (index, key, val) => {
     haptic();
-    const item = window.currentData.stockOptions[index];
-    item.isLtcg = !item.isLtcg;
+    window.currentData.income[index][key] = val;
     window.debouncedAutoSave();
-    window.openAdvancedPE(index); // Re-render modal
+};
+
+window.toggleIncDedFreq = (index) => {
+    haptic();
+    const inc = window.currentData.income[index];
+    const wasMon = !!inc.incomeExpensesMonthly;
+    // convert value
+    if (wasMon) inc.incomeExpenses = inc.incomeExpenses * 12; 
+    else inc.incomeExpenses = inc.incomeExpenses / 12;
+    inc.incomeExpensesMonthly = !wasMon;
+    
+    window.debouncedAutoSave();
+    window.openAdvancedIncome(index); // Re-render modal
     renderApp(); // Update background
+};
+
+// --- SWIPE LOGIC ---
+function attachSwipeHandlers() {
+    const containers = document.querySelectorAll('.swipe-container');
+    
+    containers.forEach(el => {
+        let startX = 0;
+        let content = el.querySelector('.swipe-content');
+        if (!content) return;
+
+        el.addEventListener('touchstart', (e) => {
+            startX = e.touches[0].clientX;
+            // Close others
+            if (currentSwipeEl && currentSwipeEl !== content) {
+                currentSwipeEl.style.transform = 'translateX(0)';
+            }
+            currentSwipeEl = content;
+        }, { passive: true });
+
+        el.addEventListener('touchmove', (e) => {
+            const diff = e.touches[0].clientX - startX;
+            if (diff < 0 && diff > -150) { // Limit drag
+                content.style.transform = `translateX(${diff}px)`;
+            }
+        }, { passive: true });
+
+        el.addEventListener('touchend', (e) => {
+            const diff = e.changedTouches[0].clientX - startX;
+            if (diff < -60) {
+                // Snap open (reveal actions)
+                // Width depends on number of buttons. 2 buttons ~140px, 1 button ~80px
+                const actionsWidth = el.querySelector('.swipe-actions').offsetWidth;
+                content.style.transform = `translateX(-${actionsWidth}px)`;
+                haptic();
+            } else {
+                // Snap close
+                content.style.transform = 'translateX(0)';
+                currentSwipeEl = null;
+            }
+        });
+    });
 }
 
-// ... rest of fire render etc ...
+window.currentData = null;
+window.mobileSaveTimeout = null;
+
+// INIT Safety Check
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+} else {
+    init();
+}
