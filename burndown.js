@@ -1,4 +1,3 @@
-
 /**
  * Burndown Controller v5.0.0 (Modular)
  */
@@ -44,6 +43,12 @@ export const burndown = {
                 return;
             }
 
+            // Use window.currentData for initial default values if available
+            const d = window.currentData;
+            const initialRetAge = d?.assumptions?.retirementAge || 65;
+            const initialManualBudget = d?.burndown?.manualBudget || 100000;
+            const initialSync = d?.burndown?.useSync !== false;
+
             viewContainer.innerHTML = `
                 <div class="flex flex-col gap-2.5">
                     <div class="flex flex-col md:flex-row justify-between items-end md:items-center gap-4 mb-2 border-b border-white/5 pb-2">
@@ -62,7 +67,7 @@ export const burndown = {
                                 <label class="text-[9px] font-bold text-slate-500 uppercase tracking-widest">Retirement Age</label>
                                 <div class="flex items-center gap-2 bg-slate-900/50 p-1 rounded-lg border border-white/10">
                                     <button data-step="down" data-target="retirementAge" class="w-6 h-6 flex items-center justify-center hover:bg-slate-700 rounded text-slate-400 hover:text-white transition-colors"><i class="fas fa-minus text-[10px]"></i></button>
-                                    <input type="number" data-id="retirementAge" class="bg-transparent border-none text-blue-400 font-black mono-numbers text-sm w-10 text-center outline-none" value="65">
+                                    <input type="number" data-id="retirementAge" class="bg-transparent border-none text-blue-400 font-black mono-numbers text-sm w-10 text-center outline-none" value="${initialRetAge}">
                                     <button data-step="up" data-target="retirementAge" class="w-6 h-6 flex items-center justify-center hover:bg-slate-700 rounded text-slate-400 hover:text-white transition-colors"><i class="fas fa-plus text-[10px]"></i></button>
                                 </div>
                              </div>
@@ -77,10 +82,10 @@ export const burndown = {
                              <div class="flex flex-col items-end gap-1">
                                 <label class="text-[9px] font-bold text-slate-500 uppercase tracking-widest">Budget Logic</label>
                                 <div class="flex items-center gap-2">
-                                    <input type="text" id="input-manual-budget" data-type="currency" inputmode="decimal" class="bg-slate-900 border border-slate-700 rounded-lg px-2 py-1 text-sm text-teal-400 font-bold text-right w-24 mono-numbers outline-none focus:border-blue-500 transition-all">
+                                    <input type="text" id="input-manual-budget" data-type="currency" inputmode="decimal" class="bg-slate-900 border border-slate-700 rounded-lg px-2 py-1 text-sm text-teal-400 font-bold text-right w-24 mono-numbers outline-none focus:border-blue-500 transition-all ${initialSync ? 'opacity-40' : ''}" value="${math.toCurrency(initialManualBudget)}" ${initialSync ? 'disabled' : ''}>
                                     <label class="flex items-center gap-2 cursor-pointer bg-slate-900/50 border border-white/10 px-2 py-1 rounded-lg hover:border-slate-600 transition-all">
                                         <span class="text-[9px] font-black text-slate-400 uppercase">Sync</span>
-                                        <input type="checkbox" id="toggle-budget-sync" checked class="w-3 h-3 accent-blue-500 rounded bg-slate-800 border-slate-600">
+                                        <input type="checkbox" id="toggle-budget-sync" ${initialSync ? 'checked' : ''} class="w-3 h-3 accent-blue-500 rounded bg-slate-800 border-slate-600">
                                     </label>
                                 </div>
                              </div>
@@ -169,7 +174,12 @@ export const burndown = {
             `;
             
             burndown.attachListeners();
-            if (window.currentData) burndown.run();
+            // Critical: If we have saved data, apply it to the DOM we just created
+            if (window.currentData) {
+                burndown.load(window.currentData.burndown);
+            } else {
+                burndown.run();
+            }
 
         } catch (e) {
             log(`CRITICAL ERROR IN INIT: ${e.message}`);
@@ -202,25 +212,7 @@ export const burndown = {
                 const btn = e.target.closest('button');
                 if (!btn) return;
                 const mode = btn.dataset.mode;
-                personaContainer.querySelectorAll('button').forEach(b => {
-                    b.classList.remove('bg-emerald-500/10', 'border-emerald-500/30', 'bg-slate-500/10', 'border-slate-500/30');
-                });
-                const styleMap = { 'PLATINUM': 'bg-emerald-500/10 border-emerald-500/30', 'RAW': 'bg-slate-500/10 border-slate-500/30' };
-                btn.classList.add(...styleMap[mode].split(' '));
-                personaContainer.dataset.value = mode;
-
-                const snapWrapper = document.getElementById('card-snap-wrapper');
-                if (snapWrapper) {
-                    snapWrapper.classList.toggle('opacity-20', mode === 'RAW');
-                    snapWrapper.classList.toggle('pointer-events-none', mode === 'RAW');
-                }
-                
-                const priorityWrapper = document.getElementById('priority-list-wrapper');
-                if (priorityWrapper) {
-                    priorityWrapper.classList.toggle('opacity-40', mode === 'PLATINUM');
-                    priorityWrapper.classList.toggle('pointer-events-none', mode === 'PLATINUM');
-                }
-
+                burndown.updatePersonaUI(mode);
                 burndown.run();
                 if (window.debouncedAutoSave) window.debouncedAutoSave();
             };
@@ -257,14 +249,42 @@ export const burndown = {
         }
     },
 
+    updatePersonaUI: (mode) => {
+        const personaContainer = document.getElementById('persona-selector');
+        if (!personaContainer) return;
+        
+        personaContainer.querySelectorAll('button').forEach(b => {
+            b.classList.remove('bg-emerald-500/10', 'border-emerald-500/30', 'bg-slate-500/10', 'border-slate-500/30');
+        });
+        
+        const btn = personaContainer.querySelector(`[data-mode="${mode}"]`);
+        if (btn) {
+            const styleMap = { 'PLATINUM': 'bg-emerald-500/10 border-emerald-500/30', 'RAW': 'bg-slate-500/10 border-slate-500/30' };
+            btn.classList.add(...styleMap[mode].split(' '));
+        }
+        
+        personaContainer.dataset.value = mode;
+
+        const snapWrapper = document.getElementById('card-snap-wrapper');
+        if (snapWrapper) {
+            snapWrapper.classList.toggle('opacity-20', mode === 'RAW');
+            snapWrapper.classList.toggle('pointer-events-none', mode === 'RAW');
+        }
+        
+        const priorityWrapper = document.getElementById('priority-list-wrapper');
+        if (priorityWrapper) {
+            priorityWrapper.classList.toggle('opacity-40', mode === 'PLATINUM');
+            priorityWrapper.classList.toggle('pointer-events-none', mode === 'PLATINUM');
+        }
+    },
+
     load: (data) => {
         if (!data) return;
         if (data.priority) priorityOrder = [...new Set(data.priority)];
         isRealDollars = !!data.isRealDollars;
         
         const mode = data.strategyMode || 'RAW';
-        const personaSelector = document.getElementById('persona-selector');
-        if (personaSelector) { const btn = personaSelector.querySelector(`[data-mode="${mode}"]`); if (btn) btn.click(); }
+        burndown.updatePersonaUI(mode);
         
         const sync = (id, val) => { const el = document.getElementById(id); if (el) { el.value = val; el.dispatchEvent(new Event('input')); } };
         sync('input-cash-reserve', data.cashReserve ?? 25000);
@@ -278,6 +298,13 @@ export const burndown = {
             const summaries = engine.calculateSummaries(window.currentData);
             manualBud.value = math.toCurrency(data.useSync ? summaries.totalAnnualBudget : (data.manualBudget || 100000));
             manualBud.disabled = data.useSync;
+            manualBud.classList.toggle('opacity-40', data.useSync);
+        }
+
+        // Restore retirement age specifically for the burndown tab UI
+        const retAgeInp = document.querySelector('[data-id="retirementAge"]');
+        if (retAgeInp && window.currentData?.assumptions?.retirementAge) {
+            retAgeInp.value = window.currentData.assumptions.retirementAge;
         }
         
         renderPriorityList(document.getElementById('draw-priority-list'), priorityOrder, (newOrder) => {

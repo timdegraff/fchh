@@ -1,4 +1,3 @@
-
 /** FIRECalc Stable v4.1.2 - Production Build **/
 import { engine, math } from './utils.js';
 import { benefits } from './benefits.js';
@@ -10,7 +9,7 @@ window.currentData = null;
 window.saveTimeout = null;
 
 // Increment this to force a reset on user browsers for significant data structure changes
-const DATA_VERSION = '4.6'; 
+const DATA_VERSION = '5.0'; 
 
 export async function initializeData() {
     try {
