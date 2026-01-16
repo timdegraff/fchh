@@ -170,27 +170,6 @@ function renderApp() {
     const content = document.getElementById('mobile-content');
     content.innerHTML = '';
     
-    // FAB Logic
-    let fab = document.getElementById('fab-btn');
-    if (!fab) {
-        const fabCont = document.createElement('div');
-        fabCont.className = 'fab-container';
-        fabCont.innerHTML = `<button id="fab-btn" class="fab-btn"><i class="fas fa-plus"></i></button>`;
-        document.body.appendChild(fabCont);
-        fab = document.getElementById('fab-btn');
-    }
-    
-    // Configure FAB action
-    fab.onclick = () => {
-        haptic();
-        if (activeTab === 'assets') window.addItem('investments'); // Default to inv, maybe modal later
-        else if (activeTab === 'income') window.addItem('income');
-        else if (activeTab === 'budget') window.addItem('budget.expenses');
-        else if (activeTab === 'aid') window.addItem('benefits.dependents');
-    };
-    // Hide FAB on tabs where adding isn't primary
-    fab.parentElement.style.display = (activeTab === 'config' || activeTab === 'fire') ? 'none' : 'block';
-
     switch (activeTab) {
         case 'assets': renderAssets(content); break;
         case 'income': renderIncome(content); break;
@@ -422,6 +401,9 @@ function renderAssets(el) {
                             </div>
                         </div>`;
                     }).join('')}
+                    <button class="section-add-btn" onclick="window.addItem('${sect.path}')">
+                        <i class="fas fa-plus"></i> Add ${sect.title} Item
+                    </button>
                 </div>
             </div>
         </div>`;
@@ -466,6 +448,19 @@ function initAssetChart(data) {
     
     if (assetChart) assetChart.destroy();
     
+    // Label Shortener Map
+    const shortNames = {
+        'Pre-Tax (401k/IRA)': 'Pre-Tax',
+        'Taxable': 'Brokerage',
+        'Roth IRA': 'Roth',
+        'Stock Options': 'PE',
+        'Real Estate': 'RE',
+        'Crypto': 'Crypto',
+        'Metals': 'Metals',
+        'Cash': 'Cash',
+        'HSA': 'HSA'
+    };
+
     assetChart = new Chart(ctx, {
         type: 'doughnut',
         data: {
@@ -474,14 +469,14 @@ function initAssetChart(data) {
                 data: values,
                 backgroundColor: colors,
                 borderWidth: 0,
-                hoverOffset: 10
+                hoverOffset: 5
             }]
         },
         options: {
             responsive: true,
             maintainAspectRatio: false,
-            cutout: '65%', // slightly thicker donut to fit text
-            layout: { padding: 20 },
+            cutout: '65%', 
+            layout: { padding: 40 }, // Increased padding for popped labels
             plugins: {
                 legend: { display: false },
                 tooltip: {
@@ -508,32 +503,40 @@ function initAssetChart(data) {
                         
                         // Only show if > 5%
                         if (percent > 0.05) {
-                            const { x, y } = element.tooltipPosition();
-                            const label = chart.data.labels[index];
+                            // Calculate pop-out position
+                            const model = element;
+                            const midAngle = (model.startAngle + model.endAngle) / 2;
+                            const radius = model.outerRadius + 15; // 15px pop out
+                            const x = model.x + Math.cos(midAngle) * radius;
+                            const y = model.y + Math.sin(midAngle) * radius;
+
+                            const labelFull = chart.data.labels[index];
+                            const labelShort = shortNames[labelFull] || labelFull;
                             
                             // Styling
                             ctx.fillStyle = 'white';
-                            ctx.font = '900 9px Inter';
+                            ctx.font = '900 10px Inter';
                             ctx.textAlign = 'center';
                             ctx.textBaseline = 'middle';
                             
                             // Outline for contrast
-                            ctx.strokeStyle = 'black';
-                            ctx.lineWidth = 2;
+                            ctx.strokeStyle = '#0B0F19';
+                            ctx.lineWidth = 3;
                             
                             // Text lines
-                            const line1 = label;
-                            const line2 = `${math.toSmartCompactCurrency(value)}/${math.toSmartCompactCurrency(total)} ${Math.round(percent * 100)}%`;
+                            const line1 = labelShort;
+                            // Format: $XXX 12%
+                            const line2 = `${math.toSmartCompactCurrency(value)} ${Math.round(percent * 100)}%`;
                             
                             // Draw Line 1
                             ctx.strokeText(line1, x, y - 6);
                             ctx.fillText(line1, x, y - 6);
                             
                             // Draw Line 2
-                            ctx.font = 'bold 8px Inter'; // slightly smaller details
-                            ctx.fillStyle = '#cbd5e1'; // slight dim
-                            ctx.strokeText(line2, x, y + 4);
-                            ctx.fillText(line2, x, y + 4);
+                            ctx.font = 'bold 9px Inter'; 
+                            ctx.fillStyle = '#cbd5e1'; 
+                            ctx.strokeText(line2, x, y + 5);
+                            ctx.fillText(line2, x, y + 5);
                         }
                     });
                 });
@@ -616,6 +619,13 @@ function renderIncome(el) {
         </div>
     `).join('');
     
+    // Add Income Button
+    el.innerHTML += `
+        <button class="section-add-btn" onclick="window.addItem('income')">
+            <i class="fas fa-plus"></i> Add Income Stream
+        </button>
+    `;
+    
     // Check limits logic
     d.income.forEach((inc, i) => {
         const annual = inc.amount * (inc.isMonthly ? 12 : 1);
@@ -673,6 +683,9 @@ function renderBudget(el) {
             <div class="collapsible-content open bg-black/20">
                 <div class="px-4 sortable-list">
                     ${(d.budget?.savings || []).filter(s => !s.isLocked).map((s, i) => renderRow(s, i, 'savings')).join('')}
+                    <button class="section-add-btn" onclick="window.addItem('budget.savings')">
+                        <i class="fas fa-plus"></i> Add Savings
+                    </button>
                 </div>
             </div>
         </div>
@@ -684,6 +697,9 @@ function renderBudget(el) {
             <div class="collapsible-content open bg-black/20">
                 <div class="px-4 sortable-list">
                      ${(d.budget?.expenses || []).map((s, i) => renderRow(s, i, 'expenses')).join('')}
+                     <button class="section-add-btn" onclick="window.addItem('budget.expenses')">
+                        <i class="fas fa-plus"></i> Add Expense
+                    </button>
                 </div>
             </div>
         </div>
@@ -804,6 +820,9 @@ function renderAid(el) {
                          <button onclick="window.removeItem('benefits.dependents', ${i})" class="text-slate-600 px-2"><i class="fas fa-times"></i></button>
                     </div>
                 `).join('')}
+                <button class="section-add-btn" onclick="window.addItem('benefits.dependents')">
+                    <i class="fas fa-plus"></i> Add Child
+                </button>
             </div>
             
             <div class="grid grid-cols-2 gap-4">
