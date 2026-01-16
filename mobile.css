@@ -6,6 +6,7 @@
     --app-bg: #0B0F19;
     --card-bg: #1e293b; /* Solid color to hide swipe actions */
     --active-tab-bg: rgba(255, 255, 255, 0.05);
+    --header-height: 60px; /* Default, updated by JS */
 }
 
 body {
@@ -69,7 +70,7 @@ input:disabled {
     margin-bottom: 8px;
     transition: all 0.2s;
     position: sticky;
-    top: 0;
+    top: var(--header-height); /* Stick right below the main header */
     z-index: 20;
 }
 .collapsible-header.active {
@@ -204,17 +205,24 @@ input:disabled {
 .text-type-metals { color: #eab308 !important; }
 .text-type-hsa { color: #2dd4bf !important; }
 
-/* Stepper Control */
+/* Stepper Control - Enhanced Touch Zone */
 .stepper-btn {
-    width: 24px; height: 24px;
+    width: 40px; height: 40px; /* Larger touch target */
     background: rgba(255,255,255,0.1);
-    border-radius: 6px;
+    border-radius: 8px;
     color: white;
     display: flex; align-items: center; justify-content: center;
-    font-size: 10px;
+    font-size: 14px;
     transition: background 0.1s;
+    flex-shrink: 0;
 }
-.stepper-btn:active { background: rgba(255,255,255,0.2); }
+.stepper-btn:active { background: rgba(255,255,255,0.25); }
+
+/* Smaller text for edit area inside stepper */
+.stepper-input {
+    font-size: 11px !important; 
+    font-weight: 900;
+}
 
 /* Chart Container */
 .chart-container {
@@ -225,4 +233,9 @@ input:disabled {
     justify-content: center;
     align-items: center;
     margin-bottom: 16px;
+}
+
+/* Main Content Padding - controlled by JS var */
+#mobile-content {
+    padding-top: calc(var(--header-height) + 10px);
 }

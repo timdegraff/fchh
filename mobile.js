@@ -129,7 +129,7 @@ function attachListeners() {
 
         // Deep set
         let ref = window.currentData;
-        for (let i = 0; i < parts.length - 1; i++) {
+        for (let i = 0; i < path.length - 1; i++) {
             if (!ref[path[i]]) ref[path[i]] = {}; // Safety
             ref = ref[path[i]];
         }
@@ -218,6 +218,7 @@ function updateHeader() {
     const left = document.getElementById('header-left');
     const right = document.getElementById('header-right');
     const toolbar = document.getElementById('header-toolbar');
+    const headerEl = document.querySelector('header');
     
     toolbar.classList.add('hidden');
     toolbar.innerHTML = '';
@@ -237,6 +238,25 @@ function updateHeader() {
     `;
 
     updateHeaderContext();
+
+    if (activeTab === 'budget') {
+        toolbar.classList.remove('hidden');
+        toolbar.innerHTML = `
+            <div class="toggle-switch-container w-full" data-state="${budgetMode === 'annual' ? 'right' : 'left'}" onclick="window.toggleBudgetMode()">
+                <div class="toggle-pill"></div>
+                <div class="toggle-option ${budgetMode === 'monthly' ? 'active' : ''}">Monthly</div>
+                <div class="toggle-option ${budgetMode === 'annual' ? 'active' : ''}">Annual</div>
+            </div>
+        `;
+    }
+
+    // Dynamic Header Height Adjustment
+    requestAnimationFrame(() => {
+        const height = headerEl.offsetHeight;
+        // Add safe area top approximation if not supported, but env usually handles it in CSS.
+        // We set the variable so sticky headers know where to sit.
+        document.documentElement.style.setProperty('--header-height', `${height}px`);
+    });
 }
 
 function updateHeaderContext() {
@@ -307,12 +327,13 @@ function renderAssets(el) {
 
     const isBasisNA = (type) => ['Cash', 'Pre-Tax (401k/IRA)', 'HSA'].includes(type);
 
+    // Reordered sections: Investments, Real Estate, Other Assets, Private Equity, HELOCs, Debts
     const sections = [
         { title: 'Investments', icon: 'fa-chart-line', color: 'text-blue-400', data: d.investments, path: 'investments' },
-        { title: 'Private Equity & Options', icon: 'fa-briefcase', color: 'text-orange-400', data: d.stockOptions, path: 'stockOptions', isOption: true },
         { title: 'Real Estate', icon: 'fa-home', color: 'text-indigo-400', data: d.realEstate, path: 'realEstate', fields: ['value', 'mortgage'] },
-        { title: 'HELOCs', icon: 'fa-university', color: 'text-red-400', data: d.helocs, path: 'helocs', fields: ['balance', 'limit'] },
         { title: 'Other Assets', icon: 'fa-car', color: 'text-teal-400', data: d.otherAssets, path: 'otherAssets', fields: ['value', 'loan'] },
+        { title: 'Private Equity & Options', icon: 'fa-briefcase', color: 'text-orange-400', data: d.stockOptions, path: 'stockOptions', isOption: true },
+        { title: 'HELOCs', icon: 'fa-university', color: 'text-red-400', data: d.helocs, path: 'helocs', fields: ['balance', 'limit'] },
         { title: 'Debts', icon: 'fa-credit-card', color: 'text-pink-400', data: d.debts, path: 'debts', fields: ['balance'] }
     ];
 
@@ -441,6 +462,7 @@ function initAssetChart(data) {
     const labels = Object.keys(totals).sort((a,b) => totals[b] - totals[a]);
     const values = labels.map(k => totals[k]);
     const colors = labels.map(k => colorMap[k]);
+    const totalNW = values.reduce((a,b) => a+b, 0);
     
     if (assetChart) assetChart.destroy();
     
@@ -458,7 +480,7 @@ function initAssetChart(data) {
         options: {
             responsive: true,
             maintainAspectRatio: false,
-            cutout: '70%',
+            cutout: '65%', // slightly thicker donut to fit text
             layout: { padding: 20 },
             plugins: {
                 legend: { display: false },
@@ -470,7 +492,54 @@ function initAssetChart(data) {
                     bodyFont: { family: 'Inter', weight: 'bold' }
                 }
             }
-        }
+        },
+        plugins: [{
+            id: 'percentLabels',
+            afterDraw: (chart) => {
+                const ctx = chart.ctx;
+                ctx.save();
+                const total = chart.config.data.datasets[0].data.reduce((a, b) => a + b, 0);
+                
+                chart.data.datasets.forEach((dataset, i) => {
+                    const meta = chart.getDatasetMeta(i);
+                    meta.data.forEach((element, index) => {
+                        const value = dataset.data[index];
+                        const percent = value / total;
+                        
+                        // Only show if > 5%
+                        if (percent > 0.05) {
+                            const { x, y } = element.tooltipPosition();
+                            const label = chart.data.labels[index];
+                            
+                            // Styling
+                            ctx.fillStyle = 'white';
+                            ctx.font = '900 9px Inter';
+                            ctx.textAlign = 'center';
+                            ctx.textBaseline = 'middle';
+                            
+                            // Outline for contrast
+                            ctx.strokeStyle = 'black';
+                            ctx.lineWidth = 2;
+                            
+                            // Text lines
+                            const line1 = label;
+                            const line2 = `${math.toSmartCompactCurrency(value)}/${math.toSmartCompactCurrency(total)} ${Math.round(percent * 100)}%`;
+                            
+                            // Draw Line 1
+                            ctx.strokeText(line1, x, y - 6);
+                            ctx.fillText(line1, x, y - 6);
+                            
+                            // Draw Line 2
+                            ctx.font = 'bold 8px Inter'; // slightly smaller details
+                            ctx.fillStyle = '#cbd5e1'; // slight dim
+                            ctx.strokeText(line2, x, y + 4);
+                            ctx.fillText(line2, x, y + 4);
+                        }
+                    });
+                });
+                ctx.restore();
+            }
+        }]
     });
 }
 
@@ -506,7 +575,7 @@ function renderIncome(el) {
                         <label class="block text-[8px] font-bold text-slate-500 uppercase mb-1">Annual Raise</label>
                         <div class="flex items-center bg-black/20 rounded-lg">
                             <button class="stepper-btn" onclick="window.stepValue('income.${i}.increase', -0.5)">-</button>
-                            <input data-path="income.${i}.increase" data-type="percent" value="${inc.increase}%" class="w-full p-2 bg-transparent text-white font-bold text-sm text-center border-none focus:ring-0">
+                            <input data-path="income.${i}.increase" data-type="percent" value="${inc.increase}%" class="w-full p-2 bg-transparent text-white stepper-input text-center border-none focus:ring-0">
                             <button class="stepper-btn" onclick="window.stepValue('income.${i}.increase', 0.5)">+</button>
                         </div>
                     </div>
@@ -521,7 +590,7 @@ function renderIncome(el) {
                             </div>
                             <div class="flex items-center bg-black/20 rounded-lg">
                                 <button class="stepper-btn" onclick="window.stepValue('income.${i}.contribution', -1)">-</button>
-                                <input data-path="income.${i}.contribution" data-type="percent" value="${inc.contribution}%" class="w-full py-1 bg-transparent text-blue-400 font-bold text-xs text-center border-none p-0 focus:ring-0">
+                                <input data-path="income.${i}.contribution" data-type="percent" value="${inc.contribution}%" class="w-full py-1 bg-transparent text-blue-400 stepper-input text-center border-none p-0 focus:ring-0">
                                 <button class="stepper-btn" onclick="window.stepValue('income.${i}.contribution', 1)">+</button>
                             </div>
                         </div>
@@ -529,7 +598,7 @@ function renderIncome(el) {
                             <span class="text-[8px] font-bold text-slate-400 uppercase block mb-1 text-center">Match %</span>
                             <div class="flex items-center bg-black/20 rounded-lg">
                                 <button class="stepper-btn" onclick="window.stepValue('income.${i}.match', -1)">-</button>
-                                <input data-path="income.${i}.match" data-type="percent" value="${inc.match}%" class="w-full py-1 bg-transparent text-white font-bold text-xs text-center border-none p-0 focus:ring-0">
+                                <input data-path="income.${i}.match" data-type="percent" value="${inc.match}%" class="w-full py-1 bg-transparent text-white stepper-input text-center border-none p-0 focus:ring-0">
                                 <button class="stepper-btn" onclick="window.stepValue('income.${i}.match', 1)">+</button>
                             </div>
                         </div>
@@ -537,7 +606,7 @@ function renderIncome(el) {
                             <span class="text-[8px] font-bold text-slate-400 uppercase block mb-1 text-center">Bonus %</span>
                             <div class="flex items-center bg-black/20 rounded-lg">
                                 <button class="stepper-btn" onclick="window.stepValue('income.${i}.bonusPct', -1)">-</button>
-                                <input data-path="income.${i}.bonusPct" data-type="percent" value="${inc.bonusPct}%" class="w-full py-1 bg-transparent text-white font-bold text-xs text-center border-none p-0 focus:ring-0">
+                                <input data-path="income.${i}.bonusPct" data-type="percent" value="${inc.bonusPct}%" class="w-full py-1 bg-transparent text-white stepper-input text-center border-none p-0 focus:ring-0">
                                 <button class="stepper-btn" onclick="window.stepValue('income.${i}.bonusPct', 1)">+</button>
                             </div>
                         </div>
@@ -627,7 +696,7 @@ function renderConfig(el) {
     const slider = (label, path, min, max, step, val, suffix = '', color='text-white') => `
         <div class="mb-5">
             <div class="flex justify-between items-end mb-2">
-                <span class="text-[10px] font-bold text-slate-500 uppercase tracking-widest">${label}</span>
+                <span class="text-[10px] font-bold ${color} uppercase tracking-widest">${label}</span>
                 <span class="${color} font-black text-sm mono-numbers">${val}${suffix}</span>
             </div>
             <input type="range" data-path="assumptions.${path}" min="${min}" max="${max}" step="${step}" value="${val}" class="w-full h-1 bg-slate-700 rounded-lg appearance-none cursor-pointer">
@@ -668,8 +737,9 @@ function renderConfig(el) {
         <div class="mobile-card">
             <h3 class="text-xs font-black text-white uppercase mb-4 border-b border-white/10 pb-2">Market</h3>
             ${slider('Stocks (APY)', 'stockGrowth', 0, 15, 0.5, a.stockGrowth, '%', 'text-blue-400')}
-            ${slider('Crypto (APY)', 'cryptoGrowth', 0, 15, 0.5, a.cryptoGrowth, '%', 'text-slate-400')}
+            ${slider('Crypto (APY)', 'cryptoGrowth', 0, 15, 0.5, a.cryptoGrowth, '%', 'text-pink-400')}
             ${slider('Real Estate (APY)', 'realEstateGrowth', 0, 10, 0.5, a.realEstateGrowth, '%', 'text-indigo-400')}
+            ${slider('Metals (APY)', 'metalsGrowth', 0, 15, 0.5, a.metalsGrowth || 6, '%', 'text-amber-400')}
             ${slider('Inflation', 'inflation', 0, 10, 0.1, a.inflation, '%', 'text-red-400')}
             ${slider('HELOC Rate', 'helocRate', 0, 12, 0.25, a.helocRate || 7.0, '%', 'text-orange-400')}
         </div>
