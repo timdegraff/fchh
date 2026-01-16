@@ -4,7 +4,7 @@ import { engine, math } from './utils.js';
 import { benefits } from './benefits.js';
 import { burndown } from './burndown.js';
 import { projection } from './projection.js';
-import { PROFILE_45_COUPLE } from './profiles.js';
+import { BLANK_PROFILE } from './profiles.js';
 
 window.currentData = null;
 window.saveTimeout = null;
@@ -32,7 +32,7 @@ export async function initializeData() {
         } else {
             // 3. FORCE DEFAULT
             console.warn("No data found. Seeding default profile.");
-            window.currentData = JSON.parse(JSON.stringify(PROFILE_45_COUPLE));
+            window.currentData = JSON.parse(JSON.stringify(BLANK_PROFILE));
         }
 
         loadUserDataIntoUI();
@@ -41,7 +41,7 @@ export async function initializeData() {
     } catch (err) {
         console.error("InitializeData fatal error:", err);
         // Fallback to absolute bare minimum to prevent hang
-        window.currentData = window.currentData || JSON.parse(JSON.stringify(PROFILE_45_COUPLE));
+        window.currentData = window.currentData || JSON.parse(JSON.stringify(BLANK_PROFILE));
         return true; 
     }
 }
