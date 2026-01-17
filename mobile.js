@@ -171,16 +171,25 @@ function attachListeners() {
         if (target.dataset.path.startsWith('stockOptions.')) {
             const parts = target.dataset.path.split('.');
             const index = parseInt(parts[1]);
-            if (!isNaN(index) && window.currentData.stockOptions[index]) {
+            
+            // Safety check for valid index and data existence
+            if (!isNaN(index) && window.currentData.stockOptions && window.currentData.stockOptions[index]) {
                 const opt = window.currentData.stockOptions[index];
                 const shares = parseFloat(opt.shares) || 0;
                 const strike = math.fromCurrency(opt.strikePrice);
                 const fmv = math.fromCurrency(opt.currentPrice);
-                const equity = Math.max(0, (fmv - strike) * shares);
                 
+                // Calculate equity, ensuring non-negative and valid number
+                let equity = Math.max(0, (fmv - strike) * shares);
+                if (isNaN(equity)) equity = 0;
+                
+                // Update DOM element directly
                 const displayEl = document.getElementById(`equity-display-${index}`);
-                if (displayEl) displayEl.textContent = math.toSmartCompactCurrency(equity);
+                if (displayEl) {
+                    displayEl.textContent = math.toSmartCompactCurrency(equity);
+                }
                 
+                // Force chart refresh with new data
                 updateAssetChart(window.currentData);
             }
         }

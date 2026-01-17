@@ -9,8 +9,8 @@ export const BLANK_PROFILE = {
         { name: 'GOLD', type: 'Metals', value: 19000, costBasis: 15000 },
         { name: 'SILVER', type: 'Metals', value: 4000, costBasis: 3000 },
         { name: 'HSA', type: 'HSA', value: 35000, costBasis: 0 },
-        { name: 'TEAMGM', type: 'Taxable', value: 30000, costBasis: 30000 },
-        { name: 'CTT', type: 'Taxable', value: 50000, costBasis: 50000 },
+        { name: 'BONUS1', type: 'Taxable', value: 30000, costBasis: 30000 },
+        { name: 'BONUS2', type: 'Taxable', value: 50000, costBasis: 50000 },
         { name: 'CHECKING ACCOUNT', type: 'Cash', value: 25000, costBasis: 25000 }
     ],
     stockOptions: [],

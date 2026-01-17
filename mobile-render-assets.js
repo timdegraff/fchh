@@ -89,7 +89,7 @@ export function renderAssets(el) {
                             <!-- Layout for Investments -->
                             <div class="flex-grow space-y-1 pt-0.5">
                                 <input data-path="${sect.path}.${i}.name" value="${item.name}" class="bg-transparent border-none p-0 text-[11px] font-bold text-white w-full placeholder:text-slate-600 focus:ring-0 uppercase tracking-tight">
-                                <select data-path="${sect.path}.${i}.type" class="bg-slate-900 border border-white/10 rounded-lg text-[8px] font-bold uppercase w-full p-1.5 ${typeClass}">
+                                <select data-path="${sect.path}.${i}.type" class="bg-slate-900 border border-white/10 rounded-lg text-[8px] font-bold w-full p-1.5 ${typeClass}">
                                     <option value="Taxable" ${item.type === 'Taxable' ? 'selected' : ''}>Taxable</option>
                                     <option value="Pre-Tax (401k/IRA)" ${item.type === 'Pre-Tax (401k/IRA)' ? 'selected' : ''}>Pre-Tax</option>
                                     <option value="Roth IRA" ${item.type === 'Roth IRA' ? 'selected' : ''}>Roth IRA</option>
