@@ -59,10 +59,12 @@ input:disabled {
 /* Custom Fire Icon */
 .nav-item[data-tab="fire"] i {
     font-size: 22px;
-    filter: drop-shadow(0 0 5px rgba(168, 85, 247, 0.5));
+    color: #64748b; /* Grey by default */
+    filter: none;
     transition: all 0.3s;
 }
 .nav-item.active[data-tab="fire"] i {
+    color: #a855f7; /* Purple when active */
     font-size: 26px;
     filter: drop-shadow(0 0 10px rgba(168, 85, 247, 0.8));
     transform: scale(1.1);

@@ -94,7 +94,12 @@ export function renderAssets(el) {
                         <button class="swipe-action-btn bg-red-600" onclick="window.removeItem('${sect.path}', ${i})">Delete</button>
                     </div>
                     <div class="swipe-content p-3 border border-white/5 flex items-start gap-3">
-                        ${sect.isOption ? '' : '<div class="drag-handle text-slate-600 px-1 mt-1"><i class="fas fa-grip-vertical"></i></div>'}
+                        ${sect.isOption ? '' : `
+                            <div class="flex flex-col gap-1.5 pr-2 pt-1">
+                                <button onclick="window.moveItem('${sect.path}', ${i}, -1)" class="text-slate-700 hover:text-white active:text-blue-400 transition-colors h-3 flex items-center"><i class="fas fa-chevron-up text-[10px]"></i></button>
+                                <button onclick="window.moveItem('${sect.path}', ${i}, 1)" class="text-slate-700 hover:text-white active:text-blue-400 transition-colors h-3 flex items-center"><i class="fas fa-chevron-down text-[10px]"></i></button>
+                            </div>
+                        `}
                         
                         ${sect.path === 'investments' ? `
                             <!-- Layout for Investments -->

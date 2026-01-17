@@ -31,30 +31,24 @@ export function renderApp() {
     
     // Call the global swipe handler if available (defined in actions)
     if (window.attachSwipeHandlers) window.attachSwipeHandlers();
-    
-    // Initialize Sortable for reordering with Long Press
-    if (typeof Sortable !== 'undefined' && (activeTab === 'assets' || activeTab === 'budget')) {
-        document.querySelectorAll('.sortable-list').forEach(list => {
-            new Sortable(list, {
-                delay: 250, // 250ms Long Press
-                delayOnTouchOnly: true,
-                animation: 150,
-                onChoose: () => window.haptic?.(), 
-                onEnd: () => { window.haptic?.(); window.mobileAutoSave?.(); } 
-            });
-        });
-    }
 }
 
 export function updateHeader() {
     const left = document.getElementById('header-left');
     const right = document.getElementById('header-right');
     const center = document.getElementById('header-center');
+    const toolbar = document.getElementById('header-toolbar');
     const headerEl = document.querySelector('header');
     
     if (!left || !headerEl) return;
 
     const { activeTab, budgetMode } = getState();
+
+    // Default: hide toolbar
+    if (toolbar) {
+        toolbar.classList.add('hidden');
+        toolbar.innerHTML = '';
+    }
 
     const titles = {
         'assets': 'Assets',
@@ -114,6 +108,54 @@ export function updateHeader() {
                     </div>
                 </div>
             `;
+        }
+        
+        // Inject FIRE Summary Cards into the sticky header toolbar
+        if (toolbar) {
+            const s = engine.calculateSummaries(d);
+            const strategyMode = d.burndown?.strategyMode || 'RAW';
+            const snapPreserve = d.burndown?.snapPreserve || 0;
+            
+            // Run headless simulation for metrics
+            const results = simulateProjection(d, { 
+                strategyMode: strategyMode,
+                manualBudget: s.totalAnnualBudget,
+                useSync: true,
+                priority: ['cash', 'roth-basis', 'taxable', 'crypto', 'metals', 'heloc', '401k', 'hsa', 'roth-earnings']
+            });
+            const dwzVal = calculateDieWithZero(d, { 
+                strategyMode, 
+                cashReserve: d.burndown?.cashReserve || 0,
+                snapPreserve,
+                useSync: true
+            }, {});
+
+            const currentAge = parseFloat(d.assumptions.currentAge) || 40;
+            const insolvencyAge = results.firstInsolvencyAge;
+            const runway = insolvencyAge ? (insolvencyAge - currentAge) : null;
+            const presAge = insolvencyAge ? insolvencyAge : "100+";
+            const runVal = runway !== null ? `${runway} Yrs` : "Forever";
+
+            toolbar.innerHTML = `
+                <div class="grid grid-cols-3 gap-2 px-1">
+                    <div class="bg-slate-900/50 rounded-xl border border-slate-800 p-2 flex flex-col items-center justify-center text-center">
+                        <i class="fas fa-shield-alt text-amber-500 text-[10px] mb-1"></i>
+                        <div class="text-[8px] font-bold text-slate-500 uppercase tracking-tight">Preservation</div>
+                        <div class="text-sm font-black text-amber-500 mono-numbers leading-none mt-0.5">${presAge}</div>
+                    </div>
+                    <div class="bg-slate-900/50 rounded-xl border border-slate-800 p-2 flex flex-col items-center justify-center text-center">
+                        <i class="fas fa-road text-blue-400 text-[10px] mb-1"></i>
+                        <div class="text-[8px] font-bold text-slate-500 uppercase tracking-tight">Runway</div>
+                        <div class="text-sm font-black text-blue-400 mono-numbers leading-none mt-0.5">${runVal}</div>
+                    </div>
+                    <div class="bg-slate-900/50 rounded-xl border border-slate-800 p-2 flex flex-col items-center justify-center text-center">
+                        <i class="fas fa-skull text-pink-400 text-[10px] mb-1"></i>
+                        <div class="text-[8px] font-bold text-slate-500 uppercase tracking-tight">Die With $0</div>
+                        <div class="text-sm font-black text-pink-400 mono-numbers leading-none mt-0.5">${math.toSmartCompactCurrency(dwzVal)}</div>
+                    </div>
+                </div>
+            `;
+            toolbar.classList.remove('hidden');
         }
     }
 
@@ -346,7 +388,12 @@ export function renderBudget(el) {
                 <button class="swipe-action-btn bg-red-600" onclick="window.removeItem('budget.${type}', ${i})">Delete</button>
             </div>
             <div class="swipe-content ${bgClass} ${opacityClass} border-b border-white/5 py-3 flex items-center justify-between">
-                <div class="drag-handle text-slate-600 px-2" ${item.isLocked ? 'style="visibility:hidden"' : ''}><i class="fas fa-grip-vertical"></i></div>
+                ${item.isLocked ? '<div class="w-2"></div>' : `
+                    <div class="flex flex-col gap-1.5 pr-2">
+                        <button onclick="window.moveItem('budget.${type}', ${i}, -1)" class="text-slate-700 hover:text-white active:text-blue-400 transition-colors h-3 flex items-center"><i class="fas fa-chevron-up text-[10px]"></i></button>
+                        <button onclick="window.moveItem('budget.${type}', ${i}, 1)" class="text-slate-700 hover:text-white active:text-blue-400 transition-colors h-3 flex items-center"><i class="fas fa-chevron-down text-[10px]"></i></button>
+                    </div>
+                `}
                 <div class="flex-grow">
                      ${type === 'savings' ? `
                         <div class="relative w-[80%]">
@@ -472,48 +519,6 @@ export function renderFire(el) {
         priority: ['cash', 'roth-basis', 'taxable', 'crypto', 'metals', 'heloc', '401k', 'hsa', 'roth-earnings']
     });
 
-    // Summary Card Calcs
-    const currentAge = parseFloat(d.assumptions.currentAge) || 40;
-    const insolvencyAge = results.firstInsolvencyAge;
-    const runway = insolvencyAge ? (insolvencyAge - currentAge) : null;
-    const presAge = insolvencyAge ? insolvencyAge : "100+";
-    const runVal = runway !== null ? `${runway} Yrs` : "Forever";
-    
-    // Only calculate DWZ if we are in Fire tab to save perf on other tabs, but here we are in renderFire so it is fine.
-    // However, DWZ is expensive. We can placeholder it or run it. Let's run it.
-    // To avoid circular dependency issues, we pass a dummy context or just call logic directly if possible.
-    // calculateDieWithZero takes (data, config, context).
-    const dwzVal = calculateDieWithZero(d, { 
-        strategyMode, 
-        cashReserve: d.burndown?.cashReserve || 0,
-        snapPreserve,
-        useSync: true
-    }, {}); 
-
-    // SECONDARY STICKY HEADER (Summary Cards)
-    // We inject this directly into the flow, but style it to stick below the main header
-    const stickyHeaderHtml = `
-        <div class="sticky top-[56px] z-30 bg-[#0B0F19]/95 backdrop-blur-md border-b border-white/5 px-2 py-3 mb-4 -mx-4">
-            <div class="grid grid-cols-3 gap-2 px-2">
-                <div class="bg-slate-900/50 rounded-xl border border-slate-800 p-2 flex flex-col items-center justify-center text-center">
-                    <i class="fas fa-shield-alt text-amber-500 text-[10px] mb-1"></i>
-                    <div class="text-[8px] font-bold text-slate-500 uppercase tracking-tight">Preservation</div>
-                    <div class="text-sm font-black text-amber-500 mono-numbers leading-none mt-0.5">${presAge}</div>
-                </div>
-                <div class="bg-slate-900/50 rounded-xl border border-slate-800 p-2 flex flex-col items-center justify-center text-center">
-                    <i class="fas fa-road text-blue-400 text-[10px] mb-1"></i>
-                    <div class="text-[8px] font-bold text-slate-500 uppercase tracking-tight">Runway</div>
-                    <div class="text-sm font-black text-blue-400 mono-numbers leading-none mt-0.5">${runVal}</div>
-                </div>
-                <div class="bg-slate-900/50 rounded-xl border border-slate-800 p-2 flex flex-col items-center justify-center text-center">
-                    <i class="fas fa-skull text-pink-400 text-[10px] mb-1"></i>
-                    <div class="text-[8px] font-bold text-slate-500 uppercase tracking-tight">Die With $0</div>
-                    <div class="text-sm font-black text-pink-400 mono-numbers leading-none mt-0.5">${math.toSmartCompactCurrency(dwzVal)}</div>
-                </div>
-            </div>
-        </div>
-    `;
-
     // Fire Controls (Engine + SNAP)
     const controlsHtml = `
         <div class="grid grid-cols-2 gap-3 mb-4">
@@ -527,11 +532,6 @@ export function renderFire(el) {
                         Iron Fist
                     </button>
                 </div>
-                <!-- Hacky way to toggle mode: click handler sets global data directly in onclick or uses action -->
-                <!-- Better way: use a specific action. For now, inline JS to set property. -->
-                <script>
-                   // Inline handlers injected via onclick attribute above
-                </script>
             </div>
             
             <div class="bg-slate-900/30 rounded-xl border border-slate-800/50 p-2 flex flex-col justify-between ${strategyMode === 'RAW' ? 'opacity-40 pointer-events-none' : ''}">
@@ -576,7 +576,6 @@ export function renderFire(el) {
     `;
 
     el.innerHTML = `
-        ${stickyHeaderHtml}
         ${controlsHtml}
         ${fireTable}
         <div class="mt-8">

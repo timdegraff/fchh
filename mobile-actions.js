@@ -50,6 +50,29 @@ window.showWarning = showWarning;
 
 // --- GLOBAL UI ACTIONS ---
 
+window.moveItem = (path, index, direction) => {
+    haptic();
+    let ref = window.currentData;
+    const parts = path.split('.');
+    
+    // Resolve array from path (handle nested budget paths)
+    for (let i = 0; i < parts.length; i++) {
+        ref = ref[parts[i]];
+    }
+    
+    // Validate bounds
+    const newIndex = index + direction;
+    if (newIndex < 0 || newIndex >= ref.length) return;
+    
+    // Swap items
+    const temp = ref[index];
+    ref[index] = ref[newIndex];
+    ref[newIndex] = temp;
+    
+    mobileAutoSave();
+    renderApp();
+};
+
 window.toggleIncomeHeaderMode = () => {
     haptic();
     window.mobileState.incomeDisplayMode = window.mobileState.incomeDisplayMode === 'current' ? 'retire' : 'current';
