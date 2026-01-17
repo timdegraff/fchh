@@ -106,7 +106,8 @@ function attachListeners() {
         if (target.dataset.type === 'currency') {
             const raw = math.fromCurrency(target.value);
             target.value = raw === 0 ? '' : raw; 
-            target.type = 'number'; 
+            // NOTE: Do not switch type to 'number' here; it breaks iOS focus.
+            // inputmode="decimal" handles the keyboard.
         } else if (target.dataset.type === 'percent') {
             const raw = parseFloat(target.value.replace('%', ''));
             target.value = isNaN(raw) ? '' : raw;
@@ -120,8 +121,7 @@ function attachListeners() {
         if (target.tagName !== 'INPUT') return;
 
         if (target.dataset.type === 'currency') {
-            const val = parseFloat(target.value) || 0;
-            target.type = 'text';
+            const val = math.fromCurrency(target.value); // Use helper to handle partial inputs
             target.value = math.toCurrency(val);
         } else if (target.dataset.type === 'percent') {
             const val = parseFloat(target.value) || 0;
@@ -152,7 +152,7 @@ function attachListeners() {
         }
         
         if (dataType === 'currency') {
-            val = parseFloat(val) || 0;
+            val = math.fromCurrency(val); // FIXED: Handle "$1,000" strings from blur event
             if (window.mobileState.activeTab === 'budget' && window.mobileState.budgetMode === 'monthly') val = val * 12;
         } else if (dataType === 'percent') {
             val = parseFloat(val) || 0;

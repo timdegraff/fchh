@@ -421,11 +421,13 @@ window.attachSwipeHandlers = () => {
     
     containers.forEach(el => {
         let startX = 0;
+        let startY = 0;
         let content = el.querySelector('.swipe-content');
         if (!content) return;
 
         el.addEventListener('touchstart', (e) => {
             startX = e.touches[0].clientX;
+            startY = e.touches[0].clientY;
             const actions = el.querySelector('.swipe-actions');
             if(actions) actions.style.visibility = 'visible';
 
@@ -436,9 +438,18 @@ window.attachSwipeHandlers = () => {
         }, { passive: true });
 
         el.addEventListener('touchmove', (e) => {
-            const diff = e.touches[0].clientX - startX;
-            if (diff < 0 && diff > -150) { // Limit drag
-                content.style.transform = `translateX(${diff}px)`;
+            const currentX = e.touches[0].clientX;
+            const currentY = e.touches[0].clientY;
+            const diffX = currentX - startX;
+            const diffY = currentY - startY;
+
+            // Threshold Check & Axis Locking
+            // 1. Must move at least 10px to be considered a swipe (prevents tap jitter)
+            // 2. Must be primarily horizontal (diffX > diffY) to avoid blocking vertical scroll
+            if (Math.abs(diffX) > 10 && Math.abs(diffX) > Math.abs(diffY)) {
+                if (diffX < 0 && diffX > -150) { // Limit drag
+                    content.style.transform = `translateX(${diffX}px)`;
+                }
             }
         }, { passive: true });
 
