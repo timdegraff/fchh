@@ -79,6 +79,15 @@ window.toggleIncomeHeaderMode = () => {
     renderApp();
 };
 
+window.toggleFireMode = () => {
+    haptic();
+    if (!window.currentData.burndown) window.currentData.burndown = {};
+    const current = window.currentData.burndown.strategyMode || 'RAW';
+    window.currentData.burndown.strategyMode = (current === 'RAW') ? 'PLATINUM' : 'RAW';
+    mobileAutoSave();
+    renderApp();
+};
+
 window.toggleSection = (id) => {
     haptic();
     window.mobileState.collapsedSections[id] = !window.mobileState.collapsedSections[id];
