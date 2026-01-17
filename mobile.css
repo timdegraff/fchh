@@ -244,7 +244,7 @@ input:disabled {
 
 /* Smaller text for edit area inside stepper */
 .stepper-input {
-    font-size: 11px !important; 
+    font-size: 14px !important; /* Increased from 11px per user request */
     font-weight: 900;
 }
 

@@ -12,6 +12,7 @@ let collapsedSections = {};
 let swipeStartX = 0;
 let currentSwipeEl = null;
 let assetChart = null;
+let mobileSaveTimeout = null; // Local timeout var
 
 // --- BOOTSTRAP ---
 async function init() {
@@ -49,6 +50,20 @@ function haptic() {
     } catch (e) {
         // Ignore haptic errors
     }
+}
+
+function mobileAutoSave() {
+    if (!window.currentData) return;
+    if (mobileSaveTimeout) clearTimeout(mobileSaveTimeout);
+    
+    mobileSaveTimeout = setTimeout(() => {
+        try {
+            localStorage.setItem('firecalc_data', JSON.stringify(window.currentData));
+            console.log("Mobile state saved to storage.");
+        } catch (e) {
+            console.error("Mobile save failed:", e);
+        }
+    }, 1000);
 }
 
 function attachListeners() {
@@ -180,7 +195,7 @@ function attachListeners() {
         }
         ref[path[path.length - 1]] = val;
 
-        window.debouncedAutoSave();
+        mobileAutoSave();
         // Don't re-render whole app on keystroke, just header/chart
         updateHeaderContext(); 
         if (activeTab === 'aid') updateAidHeader();
@@ -202,7 +217,7 @@ function attachListeners() {
             if (e.target.dataset.path?.includes('type')) {
                 renderApp(); 
             } else {
-                window.debouncedAutoSave();
+                mobileAutoSave();
             }
         }
     });
@@ -235,7 +250,7 @@ function renderApp() {
                 delayOnTouchOnly: true,
                 animation: 150,
                 onChoose: () => haptic(), // Feedback on pickup
-                onEnd: () => { haptic(); window.debouncedAutoSave(); } 
+                onEnd: () => { haptic(); mobileAutoSave(); } 
             });
         });
     }
@@ -314,9 +329,6 @@ function updateHeaderContext() {
                  const growth = Math.pow(1 + (parseFloat(inc.increase)/100 || 0), yrs);
                  const expMon = inc.incomeExpensesMonthly || inc.incomeExpensesMonthly === 'true';
                  const ded = (parseFloat(inc.incomeExpenses) || 0) * (expMon ? 12 : 1);
-                 // Deductions typically don't grow with income growth rate in this simple model, or maybe they do? 
-                 // Sticking to standard model: (Gross * Growth) - Deductions. 
-                 // Ideally deductions grow too, but let's assume they are fixed real costs or grow with inflation implicitly if we don't apply growth.
                  return acc + (base * growth) - ded;
             }, 0);
             
@@ -424,6 +436,8 @@ function renderAssets(el) {
                 <div class="p-3 space-y-2 sortable-list">
                     ${(sect.data || []).map((item, i) => {
                         const typeClass = sect.path === 'investments' ? getTypeColor(item.type) : 'text-slate-400';
+                        const valColorClass = (sect.path === 'debts' || sect.path === 'helocs') ? 'text-red-400' : 'text-white';
+                        
                         return `
                         <div class="swipe-container">
                             <div class="swipe-actions">
@@ -479,7 +493,7 @@ function renderAssets(el) {
                                             <span class="text-[8px] font-bold text-slate-500 uppercase mt-1">Equity</span>
                                         </div>
                                     ` : `
-                                        <input data-path="${sect.path}.${i}.${sect.fields[0]}" data-type="currency" inputmode="decimal" value="${math.toCurrency(item[sect.fields[0]])}" class="bg-transparent border-none p-0 text-sm font-black text-right text-white w-28 focus:ring-0">
+                                        <input data-path="${sect.path}.${i}.${sect.fields[0]}" data-type="currency" inputmode="decimal" value="${math.toCurrency(item[sect.fields[0]])}" class="bg-transparent border-none p-0 text-sm font-black text-right ${valColorClass} w-28 focus:ring-0">
                                         ${sect.fields[1] ? `<input data-path="${sect.path}.${i}.${sect.fields[1]}" data-type="currency" inputmode="decimal" value="${math.toCurrency(item[sect.fields[1]])}" class="bg-transparent border-none p-0 text-[10px] font-bold text-right text-red-400 w-28 focus:ring-0 block mt-1">` : ''}
                                     `)}
                                 </div>
@@ -627,6 +641,9 @@ function updateAssetChart(data) {
 
 function renderIncome(el) {
     const d = window.currentData;
+    const age = d.assumptions?.currentAge || 40;
+    const kLimit = age >= 50 ? 31000 : 23500;
+
     el.innerHTML = (d.income || []).map((inc, i) => `
         <div class="swipe-container rounded-xl mb-3">
             <div class="swipe-actions rounded-xl overflow-hidden">
@@ -661,7 +678,7 @@ function renderIncome(el) {
                         <div>
                             <div class="flex items-center justify-center gap-1 mb-1">
                                 <span class="text-[8px] font-bold text-slate-400 uppercase">401k %</span>
-                                <i class="fas fa-exclamation-triangle text-yellow-500 text-[10px] hidden" id="warn-401k-${i}" onclick="alert('Exceeds IRS Limit')"></i>
+                                <i class="fas fa-exclamation-triangle text-yellow-500 text-[10px] hidden" id="warn-401k-${i}" onclick="alert('Exceeds 2026 IRS Limit of ${math.toCurrency(kLimit)}')"></i>
                             </div>
                             <div class="flex items-center bg-black/20 rounded-lg">
                                 <button class="stepper-btn" onclick="window.stepValue('income.${i}.contribution', -1)">-</button>
@@ -700,8 +717,7 @@ function renderIncome(el) {
     
     d.income.forEach((inc, i) => {
         const annual = inc.amount * (inc.isMonthly ? 12 : 1);
-        const limit = 23500; 
-        if ((annual * (inc.contribution/100)) > limit) {
+        if ((annual * (inc.contribution/100)) > kLimit) {
             document.getElementById(`warn-401k-${i}`)?.classList.remove('hidden');
         }
     });
@@ -715,8 +731,17 @@ function renderBudget(el) {
 
     const renderRow = (item, i, type) => {
         let val = (type === 'savings' ? item.annual : item.annual) * factor;
+        let warningHtml = '';
+        if (type === 'savings' && item.type === 'HSA') {
+            const hsaLimit = 8550;
+            if (item.annual > hsaLimit) {
+                warningHtml = `<i class="fas fa-exclamation-triangle text-yellow-500 text-[10px] absolute top-1 right-1" onclick="alert('Exceeds 2026 HSA Family Limit of $8,550')"></i>`;
+            }
+        }
+
         return `
-        <div class="swipe-container">
+        <div class="swipe-container relative">
+            ${warningHtml}
             <div class="swipe-actions">
                 ${type === 'expenses' ? `
                 <button class="swipe-action-btn bg-slate-700 flex flex-col gap-1" onclick="window.toggleBudgetBool('${type}', ${i}, 'remainsInRetirement')">
@@ -876,7 +901,7 @@ function renderConfig(el) {
                 if(display) display.textContent = val + '%';
                 // Store as factor
                 window.currentData.assumptions[e.target.dataset.path.split('.')[1]] = val / 100;
-                window.debouncedAutoSave();
+                mobileAutoSave();
             }
         }
     });
@@ -923,131 +948,173 @@ function renderAid(el) {
     const hasMedicaidPathway = isExpandedState || ben.isPregnant || ben.isDisabled;
     const isInMedicaidGap = !hasMedicaidPathway && ratio < 1.0;
 
-    // Determine Health Plan Visual
-    let healthPlanHTML = '';
-    if (isInMedicaidGap) {
-        healthPlanHTML = `
-            <div class="p-4 border-l-4 border-red-500 bg-red-900/10 rounded-r-xl mb-4">
-                <div class="text-xl font-black text-red-400 uppercase tracking-tight">MEDICAID GAP</div>
-                <div class="text-[10px] font-bold text-slate-500 uppercase tracking-widest mt-1">NO COVERAGE</div>
-                <div class="flex items-center gap-3 mt-2 text-[10px] font-black text-slate-400">
-                    <span>PREM: $1,100+</span>
-                    <span>DED: $10k+</span>
-                </div>
-            </div>`;
-    } else if (ratio <= (ben.isPregnant ? 2.0 : 1.38) && hasMedicaidPathway) {
-        healthPlanHTML = `
-            <div class="p-4 border-l-4 border-emerald-500 bg-emerald-900/10 rounded-r-xl mb-4">
-                <div class="text-xl font-black text-emerald-400 uppercase tracking-tight">PLATINUM</div>
-                <div class="text-[10px] font-bold text-slate-500 uppercase tracking-widest mt-1">Medicaid / 100% Full</div>
-                <div class="flex items-center gap-3 mt-2 text-[10px] font-black text-white">
-                    <span>PREM: $0</span>
-                    <span>DED: $0</span>
-                </div>
-            </div>`;
-    } else if (ratio <= 2.5) {
-        healthPlanHTML = `
-            <div class="p-4 border-l-4 border-blue-500 bg-blue-900/10 rounded-r-xl mb-4">
-                <div class="text-xl font-black text-blue-400 uppercase tracking-tight">SILVER CSR</div>
-                <div class="text-[10px] font-bold text-slate-500 uppercase tracking-widest mt-1">High Subsidy / Low Copay</div>
-                <div class="flex items-center gap-3 mt-2 text-[10px] font-black text-white">
-                    <span>PREM: ~$50</span>
-                    <span>DED: ~$800</span>
-                </div>
-            </div>`;
-    } else {
-        healthPlanHTML = `
-            <div class="p-4 border-l-4 border-slate-500 bg-slate-900/30 rounded-r-xl mb-4">
-                <div class="text-xl font-black text-slate-400 uppercase tracking-tight">MARKET</div>
-                <div class="text-[10px] font-bold text-slate-500 uppercase tracking-widest mt-1">Standard ACA / Cliff</div>
-                <div class="flex items-center gap-3 mt-2 text-[10px] font-black text-slate-400">
-                    <span>PREM: Full</span>
-                    <span>DED: High</span>
-                </div>
-            </div>`;
-    }
+    // Medicaid Logic & Visuals
+    const medLimitRatio = ben.isPregnant ? 2.0 : 1.38;
+    const silverCSRLimitRatio = 2.50;
+    const cliffRatio = 4.0;
     
+    // Premium Calculation
+    let expectedContributionPct = 0;
+    const contributionThreshold = hasMedicaidPathway ? medLimitRatio : 1.0;
+    if (ratio > contributionThreshold) {
+        if (ratio < cliffRatio) {
+            const minScale = 0.021, maxScale = 0.095;
+            expectedContributionPct = minScale + (ratio - 1) * (maxScale - minScale) / (cliffRatio - 1);
+        } else {
+            expectedContributionPct = 1.0;
+        }
+    }
+    let dynamicPremium = ratio > contributionThreshold ? (magi * expectedContributionPct) / 12 : 0;
+    if (ratio >= cliffRatio) dynamicPremium = 1100; 
+
+    // Render Logic for Top Card
+    let planName = "", planSub = "", prem = "", ded = "", theme = {};
+    if (isInMedicaidGap) {
+        planName = "MEDICAID GAP"; planSub = "NO COVERAGE"; prem = math.toCurrency(1100); ded = "$10,000+";
+        theme = { text: "text-red-400", border: "border-red-500/50", bg: "bg-red-900/10" };
+    } else if (ratio <= medLimitRatio && hasMedicaidPathway) {
+        planName = ben.isPregnant ? "Platinum (Pregnancy)" : (ben.isDisabled ? "Platinum (Disability)" : "Platinum (Medicaid)");
+        planSub = "100% Full Coverage"; prem = "$0"; ded = "$0";
+        theme = { text: "text-emerald-400", border: "border-emerald-500/50", bg: "bg-emerald-900/10" };
+    } else if (ratio <= silverCSRLimitRatio) {
+        planName = "Silver CSR"; planSub = "High Subsidy / Low Copay"; prem = math.toCurrency(dynamicPremium); ded = "~$800";
+        theme = { text: "text-blue-400", border: "border-blue-500/50", bg: "bg-blue-900/10" };
+    } else {
+        planName = "Market ACA"; planSub = "Standard Subsidy / Cliff"; prem = math.toCurrency(dynamicPremium); ded = "$4,000+";
+        theme = { text: "text-slate-400", border: "border-white/10", bg: "bg-slate-900/30" };
+    }
+
     el.innerHTML = `
-        <div class="mobile-card bg-amber-500/10 border-amber-500/20">
-            <div class="flex items-center justify-between mb-4">
-                <div class="flex items-center gap-3">
-                    <div class="w-8 h-8 rounded-lg bg-amber-500/20 flex items-center justify-center text-amber-500"><i class="fas fa-users"></i></div>
-                    <h3 class="font-black text-white text-sm">Household</h3>
+        <!-- CARD 1: HEALTHCARE & INCOME -->
+        <div class="mobile-card ${theme.bg} border-2 ${theme.border}">
+            <div class="flex items-center gap-3 mb-4 border-b border-white/5 pb-2">
+                <div class="w-8 h-8 rounded-lg bg-blue-500/20 flex items-center justify-center text-blue-400"><i class="fas fa-heartbeat"></i></div>
+                <h3 class="font-black text-white text-sm uppercase tracking-widest">Healthcare & Income</h3>
+            </div>
+
+            <div class="text-center py-2 mb-4">
+                <div class="text-xl font-black uppercase tracking-tight ${theme.text}">${planName}</div>
+                <div class="text-[9px] font-black uppercase tracking-widest text-slate-500 mt-1">${planSub}</div>
+                <div class="flex justify-center gap-4 mt-2">
+                     <span class="text-[9px] font-black text-slate-400 uppercase tracking-widest">PREM: <span class="text-white">${prem}</span></span>
+                     <span class="text-[9px] font-black text-slate-400 uppercase tracking-widest">DED: <span class="text-white">${ded}</span></span>
                 </div>
             </div>
-            
-            <div class="space-y-2 mb-4">
-                ${(ben.dependents || []).map((dep, i) => `
-                    <div class="flex items-center gap-3 bg-black/20 p-2 rounded-lg">
-                        <i class="fas fa-child text-slate-500 pl-2"></i>
-                        <input data-path="benefits.dependents.${i}.name" value="${dep.name}" class="bg-transparent border-none text-xs font-bold text-white flex-grow focus:ring-0">
-                        <input data-path="benefits.dependents.${i}.birthYear" type="number" inputmode="numeric" value="${dep.birthYear}" class="bg-transparent border-none text-xs font-black text-blue-400 w-16 text-right focus:ring-0">
-                         <button onclick="window.removeItem('benefits.dependents', ${i})" class="text-slate-600 px-2"><i class="fas fa-times"></i></button>
-                    </div>
-                `).join('')}
-                <button class="section-add-btn" onclick="window.addItem('benefits.dependents')">
-                    <i class="fas fa-plus"></i> Add Child
-                </button>
-            </div>
-            
-            <div class="grid grid-cols-2 gap-4">
-                <label class="flex items-center gap-2">
-                    <input type="checkbox" data-path="benefits.isDisabled" ${ben.isDisabled ? 'checked' : ''} class="rounded bg-slate-800 border-none text-purple-500">
-                    <span class="text-[10px] font-bold text-slate-400 uppercase">Disabled</span>
-                </label>
-                <label class="flex items-center gap-2">
-                    <input type="checkbox" data-path="benefits.isPregnant" ${ben.isPregnant ? 'checked' : ''} class="rounded bg-slate-800 border-none text-teal-500">
-                    <span class="text-[10px] font-bold text-slate-400 uppercase">Pregnant</span>
-                </label>
+
+            <div class="space-y-4">
+                 <div>
+                     <div class="flex justify-between items-center mb-1">
+                         <span class="text-[10px] font-bold text-slate-500 uppercase">Sandbox MAGI</span>
+                         <span class="text-teal-400 font-black text-sm mono-numbers">${math.toCurrency(magi)}/yr</span>
+                     </div>
+                     <input type="range" data-path="benefits.unifiedIncomeAnnual" min="0" max="150000" step="1000" value="${magi}" class="w-full h-1 bg-slate-700 rounded-lg appearance-none cursor-pointer">
+                 </div>
+                 <div class="flex justify-between items-center bg-black/20 p-2 rounded-lg">
+                    <span class="text-[10px] font-bold text-slate-500 uppercase">Income Type</span>
+                    <label class="flex items-center gap-2">
+                        <input type="checkbox" data-path="benefits.isEarnedIncome" ${ben.isEarnedIncome ? 'checked' : ''} class="rounded bg-slate-800 border-none text-blue-500">
+                        <span class="text-[10px] font-bold text-white uppercase">${ben.isEarnedIncome ? 'Earned (W2)' : 'Unearned (1099/Div)'}</span>
+                    </label>
+                 </div>
             </div>
         </div>
 
-        <div class="mobile-card">
-             <div class="mb-6">
-                 <div class="flex justify-between items-center mb-1">
-                     <span class="text-xs font-bold text-white uppercase">Sandbox Income</span>
-                     <span class="text-teal-400 font-black text-sm mono-numbers">${math.toCurrency(ben.unifiedIncomeAnnual)}/yr</span>
-                 </div>
-                 <input type="range" data-path="benefits.unifiedIncomeAnnual" min="0" max="150000" step="1000" value="${ben.unifiedIncomeAnnual}" class="w-full h-1 bg-slate-700 rounded-lg appearance-none cursor-pointer">
-                 <div class="flex items-center gap-2 mt-2">
-                    <label class="flex items-center gap-2">
-                        <input type="checkbox" data-path="benefits.isEarnedIncome" ${ben.isEarnedIncome ? 'checked' : ''} class="rounded bg-slate-800 border-none text-blue-500">
-                        <span class="text-[10px] font-bold text-slate-500 uppercase">Is W2 Income?</span>
+        <!-- CARD 2: SNAP & HOUSEHOLD -->
+        <div class="mobile-card bg-amber-500/5 border border-amber-500/20">
+            <div class="flex items-center gap-3 mb-4 border-b border-white/5 pb-2">
+                <div class="w-8 h-8 rounded-lg bg-amber-500/20 flex items-center justify-center text-amber-500"><i class="fas fa-shopping-basket"></i></div>
+                <h3 class="font-black text-white text-sm uppercase tracking-widest">SNAP & Household</h3>
+            </div>
+
+            <div class="flex flex-col items-center mb-6">
+                <span class="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1">Monthly Food Benefit</span>
+                <span id="aid-snap-val" class="text-4xl font-black text-emerald-400 mono-numbers tracking-tight">$0</span>
+            </div>
+
+            <div class="space-y-4">
+                <!-- Household List -->
+                <div>
+                    <div class="flex justify-between items-center mb-2">
+                        <span class="text-[10px] font-bold text-slate-500 uppercase">Children</span>
+                        <button onclick="window.addItem('benefits.dependents')" class="text-[9px] font-bold text-blue-400 uppercase bg-blue-500/10 px-2 py-1 rounded hover:bg-blue-500/20 transition-colors">+ Add Child</button>
+                    </div>
+                    <div class="space-y-2">
+                        ${(ben.dependents || []).map((dep, i) => `
+                            <div class="flex items-center gap-2 bg-black/20 p-2 rounded-lg border border-white/5">
+                                <div class="w-6 h-6 rounded-full bg-slate-800 flex items-center justify-center text-slate-500 text-[10px]"><i class="fas fa-child"></i></div>
+                                <input data-path="benefits.dependents.${i}.name" value="${dep.name}" class="bg-transparent border-none text-xs font-bold text-white flex-grow focus:ring-0 placeholder:text-slate-600" placeholder="Name">
+                                <div class="flex items-center gap-1">
+                                    <span class="text-[8px] font-bold text-slate-600 uppercase">Born</span>
+                                    <input data-path="benefits.dependents.${i}.birthYear" type="number" inputmode="numeric" value="${dep.birthYear}" class="bg-transparent border-none text-xs font-black text-blue-400 w-12 text-center focus:ring-0">
+                                </div>
+                                <button onclick="window.removeItem('benefits.dependents', ${i})" class="text-slate-600 px-2 hover:text-red-400"><i class="fas fa-times"></i></button>
+                            </div>
+                        `).join('')}
+                        ${(ben.dependents || []).length === 0 ? '<div class="text-[10px] text-slate-600 text-center italic py-2">No dependents added</div>' : ''}
+                    </div>
+                </div>
+
+                <!-- Expense Grid -->
+                <div class="grid grid-cols-2 gap-3 pt-2">
+                     <div>
+                         <label class="block text-[8px] font-bold text-slate-500 uppercase mb-1">Shelter Costs</label>
+                         <input data-path="benefits.shelterCosts" data-type="currency" inputmode="decimal" value="${math.toCurrency(ben.shelterCosts)}" class="w-full bg-black/20 border border-white/5 rounded p-2 text-xs text-white font-bold text-right">
+                     </div>
+                     <div>
+                         <label class="block text-[8px] font-bold text-slate-500 uppercase mb-1">Medical Exp</label>
+                         <input data-path="benefits.medicalExps" data-type="currency" inputmode="decimal" value="${math.toCurrency(ben.medicalExps)}" class="w-full bg-black/20 border border-white/5 rounded p-2 text-xs text-blue-400 font-bold text-right">
+                     </div>
+                     <div>
+                         <label class="block text-[8px] font-bold text-slate-500 uppercase mb-1">Child Support Pd</label>
+                         <input data-path="benefits.childSupportPaid" data-type="currency" inputmode="decimal" value="${math.toCurrency(ben.childSupportPaid)}" class="w-full bg-black/20 border border-white/5 rounded p-2 text-xs text-pink-400 font-bold text-right">
+                     </div>
+                     <div>
+                         <label class="block text-[8px] font-bold text-slate-500 uppercase mb-1">Dependent Care</label>
+                         <input data-path="benefits.depCare" data-type="currency" inputmode="decimal" value="${math.toCurrency(ben.depCare)}" class="w-full bg-black/20 border border-white/5 rounded p-2 text-xs text-white font-bold text-right">
+                     </div>
+                </div>
+
+                <!-- Toggles Footer -->
+                <div class="flex justify-between items-center pt-2 border-t border-white/5">
+                    <label class="flex flex-col items-center gap-1 cursor-pointer">
+                        <input type="checkbox" data-path="benefits.isDisabled" ${ben.isDisabled ? 'checked' : ''} class="peer sr-only">
+                        <div class="w-8 h-4 bg-slate-800 rounded-full peer-checked:bg-purple-600 transition-colors relative after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:after:translate-x-full"></div>
+                        <span class="text-[8px] font-bold text-slate-500 uppercase peer-checked:text-white">Disabled</span>
                     </label>
-                 </div>
-             </div>
-             
-             ${healthPlanHTML}
-             
-             <div class="grid grid-cols-2 gap-3 pt-4 border-t border-white/5">
-                 <div>
-                     <label class="block text-[8px] font-bold text-slate-500 uppercase mb-1">Shelter</label>
-                     <input data-path="benefits.shelterCosts" data-type="currency" inputmode="decimal" value="${math.toCurrency(ben.shelterCosts)}" class="w-full bg-black/20 border border-white/5 rounded p-1.5 text-xs text-white font-bold text-right">
-                 </div>
-                 <div>
-                     <label class="block text-[8px] font-bold text-slate-500 uppercase mb-1">Medical</label>
-                     <input data-path="benefits.medicalExps" data-type="currency" inputmode="decimal" value="${math.toCurrency(ben.medicalExps)}" class="w-full bg-black/20 border border-white/5 rounded p-1.5 text-xs text-blue-400 font-bold text-right">
-                 </div>
-             </div>
+                    <label class="flex flex-col items-center gap-1 cursor-pointer">
+                        <input type="checkbox" data-path="benefits.isPregnant" ${ben.isPregnant ? 'checked' : ''} class="peer sr-only">
+                        <div class="w-8 h-4 bg-slate-800 rounded-full peer-checked:bg-teal-600 transition-colors relative after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:after:translate-x-full"></div>
+                        <span class="text-[8px] font-bold text-slate-500 uppercase peer-checked:text-white">Pregnant</span>
+                    </label>
+                    <label class="flex flex-col items-center gap-1 cursor-pointer">
+                        <input type="checkbox" data-path="benefits.hasSUA" ${ben.hasSUA ? 'checked' : ''} class="peer sr-only">
+                        <div class="w-8 h-4 bg-slate-800 rounded-full peer-checked:bg-blue-600 transition-colors relative after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:after:translate-x-full"></div>
+                        <span class="text-[8px] font-bold text-slate-500 uppercase peer-checked:text-white">Utility Allow</span>
+                    </label>
+                </div>
+            </div>
         </div>
         
-        <div class="space-y-4 pb-8">
-            <div class="p-3 bg-blue-900/10 border border-blue-500/20 rounded-xl">
-                <h4 class="text-[10px] font-black text-blue-400 uppercase tracking-widest mb-1"><i class="fas fa-info-circle mr-1"></i> Medical Notes</h4>
-                <p class="text-[10px] text-slate-400 leading-relaxed">
-                    <strong>Asset Test:</strong> Generally, Medicaid for healthy adults (Expansion) has NO asset test. However, elderly/disabled pathways often have strict limits ($2k).
-                    <br><strong>Non-Expansion:</strong> In states like TX/FL, adults <100% FPL get NO help unless pregnant/disabled.
-                </p>
+        ${isInMedicaidGap ? `
+        <div class="p-3 bg-red-900/10 border border-red-500/20 rounded-xl flex items-center gap-3">
+            <i class="fas fa-exclamation-triangle text-red-400 text-lg"></i>
+            <div>
+                <h4 class="text-[10px] font-black text-red-400 uppercase tracking-widest">Coverage Gap Warning</h4>
+                <p class="text-[9px] text-slate-400 leading-tight">Your state has not expanded Medicaid. Income below 100% FPL disqualifies you for both Medicaid and ACA subsidies.</p>
             </div>
-            <div class="p-3 bg-emerald-900/10 border border-emerald-500/20 rounded-xl">
-                <h4 class="text-[10px] font-black text-emerald-400 uppercase tracking-widest mb-1"><i class="fas fa-leaf mr-1"></i> SNAP Notes</h4>
-                <p class="text-[10px] text-slate-400 leading-relaxed">
-                    <strong>Asset Test:</strong> Many states enforce asset limits ($2,750-$5,000) for SNAP.
-                    <br><strong>Work Requirements:</strong> Able-bodied adults w/o dependents (ABAWDs) have strict work rules.
-                </p>
-            </div>
-        </div>
+        </div>` : ''}
     `;
+    
+    // Update SNAP Visual (Post-Render)
+    const snapVal = engine.calculateSnapBenefit(
+        ben.isEarnedIncome ? magi/12 : 0, 
+        ben.isEarnedIncome ? 0 : magi/12, 
+        0, size, ben.shelterCosts, ben.hasSUA, ben.isDisabled, 
+        ben.childSupportPaid, ben.depCare, ben.medicalExps, 
+        d.assumptions.state, 1, true
+    );
+    const snapEl = document.getElementById('aid-snap-val');
+    if (snapEl) snapEl.textContent = math.toCurrency(snapVal);
 }
 
 function renderFire(el) {
@@ -1141,7 +1208,7 @@ window.toggleBudgetBool = (type, index, key) => {
     haptic();
     const item = window.currentData.budget[type][index];
     item[key] = !item[key];
-    window.debouncedAutoSave();
+    mobileAutoSave();
     renderApp();
 };
 
@@ -1160,7 +1227,7 @@ window.addItem = (path) => {
     else ref.push({ name: 'New Asset', value: 0 });
     
     renderApp();
-    window.debouncedAutoSave();
+    mobileAutoSave();
 };
 
 window.removeItem = (path, index) => {
@@ -1172,7 +1239,7 @@ window.removeItem = (path, index) => {
     }
     ref.splice(index, 1);
     renderApp();
-    window.debouncedAutoSave();
+    mobileAutoSave();
 };
 
 window.stepValue = (path, step) => {
@@ -1184,7 +1251,7 @@ window.stepValue = (path, step) => {
     let val = parseFloat(ref[key]) || 0;
     ref[key] = parseFloat((val + step).toFixed(1));
     renderApp(); 
-    window.debouncedAutoSave();
+    mobileAutoSave();
 };
 
 window.openAdvancedIncome = (index) => {
@@ -1234,7 +1301,7 @@ window.openAdvancedIncome = (index) => {
 window.updateIncomeBool = (index, key, val) => {
     haptic();
     window.currentData.income[index][key] = val;
-    window.debouncedAutoSave();
+    mobileAutoSave();
 };
 
 window.toggleIncDedFreq = (index) => {
@@ -1246,7 +1313,7 @@ window.toggleIncDedFreq = (index) => {
     else inc.incomeExpenses = inc.incomeExpenses / 12;
     inc.incomeExpensesMonthly = !wasMon;
     
-    window.debouncedAutoSave();
+    mobileAutoSave();
     window.openAdvancedIncome(index); // Re-render modal
     renderApp(); // Update background
 };
@@ -1294,7 +1361,6 @@ function attachSwipeHandlers() {
 }
 
 window.currentData = null;
-window.mobileSaveTimeout = null;
 
 // INIT Safety Check
 if (document.readyState === 'loading') {
