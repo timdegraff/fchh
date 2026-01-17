@@ -124,6 +124,9 @@ export function renderAid(el) {
     const isExpandedState = stateMeta?.expanded !== false;
     const hasMedicaidPathway = isExpandedState || ben.isPregnant || ben.isDisabled;
     const isInMedicaidGap = !hasMedicaidPathway && ratio < 1.0;
+    
+    // Q&A State
+    const isQaOpen = window.mobileState.collapsedSections['glossary'];
 
     // Initial Static Render Logic
     let planName = "", planSub = "", prem = "", ded = "", theme = {};
@@ -162,7 +165,7 @@ export function renderAid(el) {
         <!-- CARD 1: HEALTHCARE & INCOME -->
         <div id="aid-plan-card" class="mobile-card ${theme.bg} border-2 ${theme.border} py-3">
             <div class="flex items-center gap-3 mb-2 border-b border-white/5 pb-2">
-                <div class="w-8 h-8 rounded-lg bg-blue-500/20 flex items-center justify-center text-blue-400"><i class="fas fa-heartbeat"></i></div>
+                <div class="w-8 h-8 rounded-lg bg-emerald-500/20 flex items-center justify-center text-emerald-400"><i class="fas fa-heartbeat"></i></div>
                 <h3 class="font-black text-white text-sm uppercase tracking-widest">Healthcare & Income</h3>
             </div>
 
@@ -179,7 +182,7 @@ export function renderAid(el) {
                  <div>
                      <div class="flex justify-between items-center mb-1">
                          <span class="text-[10px] font-bold text-slate-500 uppercase">Sandbox MAGI</span>
-                         <span id="aid-magi-val" class="text-teal-400 font-black text-sm mono-numbers">${math.toCurrency(magi)}/yr</span>
+                         <span id="aid-magi-val" class="text-emerald-400 font-black text-sm mono-numbers">${math.toCurrency(magi)}/yr</span>
                      </div>
                      <input type="range" data-path="benefits.unifiedIncomeAnnual" min="0" max="150000" step="1000" value="${magi}" class="w-full h-1 bg-slate-700 rounded-lg appearance-none cursor-pointer">
                  </div>
@@ -194,9 +197,9 @@ export function renderAid(el) {
         </div>
 
         <!-- CARD 2: SNAP & HOUSEHOLD -->
-        <div class="mobile-card bg-emerald-900/10 border border-emerald-500/20 py-3">
+        <div class="mobile-card bg-blue-900/10 border border-blue-500/20 py-3">
             <div class="flex items-center gap-3 mb-2 border-b border-white/5 pb-2">
-                <div class="w-8 h-8 rounded-lg bg-emerald-500/20 flex items-center justify-center text-emerald-500"><i class="fas fa-shopping-basket"></i></div>
+                <div class="w-8 h-8 rounded-lg bg-blue-500/20 flex items-center justify-center text-blue-500"><i class="fas fa-shopping-basket"></i></div>
                 <h3 class="font-black text-white text-sm uppercase tracking-widest">SNAP & Household</h3>
             </div>
 
@@ -215,7 +218,7 @@ export function renderAid(el) {
                     <div class="space-y-1">
                         ${(ben.dependents || []).map((dep, i) => `
                             <div class="flex items-center gap-2 bg-black/20 p-1.5 rounded-lg border border-white/5">
-                                <div class="w-6 h-6 rounded-full bg-slate-800 flex items-center justify-center text-slate-500 text-[10px]"><i class="fas fa-child"></i></div>
+                                <div class="w-6 h-6 rounded-full bg-slate-800 flex items-center justify-center text-blue-400 text-[10px]"><i class="fas fa-child"></i></div>
                                 <input data-path="benefits.dependents.${i}.name" value="${dep.name}" class="bg-transparent border-none text-xs font-bold text-white flex-grow focus:ring-0 placeholder:text-slate-600" placeholder="Name">
                                 <div class="flex items-center gap-1">
                                     <span class="text-[8px] font-bold text-slate-600 uppercase">Born</span>
@@ -236,11 +239,11 @@ export function renderAid(el) {
                      </div>
                      <div>
                          <label class="block text-[8px] font-bold text-slate-500 uppercase mb-0.5">Medical Exp</label>
-                         <input data-path="benefits.medicalExps" data-type="currency" inputmode="decimal" value="${math.toCurrency(ben.medicalExps)}" class="w-full bg-black/20 border border-white/5 rounded p-2 text-xs text-blue-400 font-bold text-right">
+                         <input data-path="benefits.medicalExps" data-type="currency" inputmode="decimal" value="${math.toCurrency(ben.medicalExps)}" class="w-full bg-black/20 border border-white/5 rounded p-2 text-xs text-white font-bold text-right">
                      </div>
                      <div>
                          <label class="block text-[8px] font-bold text-slate-500 uppercase mb-0.5">Child Support Pd</label>
-                         <input data-path="benefits.childSupportPaid" data-type="currency" inputmode="decimal" value="${math.toCurrency(ben.childSupportPaid)}" class="w-full bg-black/20 border border-white/5 rounded p-2 text-xs text-pink-400 font-bold text-right">
+                         <input data-path="benefits.childSupportPaid" data-type="currency" inputmode="decimal" value="${math.toCurrency(ben.childSupportPaid)}" class="w-full bg-black/20 border border-white/5 rounded p-2 text-xs text-white font-bold text-right">
                      </div>
                      <div>
                          <label class="block text-[8px] font-bold text-slate-500 uppercase mb-0.5">Dependent Care</label>
@@ -269,13 +272,13 @@ export function renderAid(el) {
             </div>
         </div>
         
-        <!-- GLOSSARY (Using Collapsible Helper) -->
+        <!-- GLOSSARY / Q&A -->
         <div class="collapsible-section">
-            <div class="collapsible-header" onclick="window.toggleSection('glossary')">
-                <span class="font-bold text-white text-base">Glossary & Definitions</span>
-                <i class="fas fa-chevron-down text-slate-500 transition-transform rotate-180"></i>
+            <div class="collapsible-header ${isQaOpen ? 'active' : ''}" onclick="window.toggleSection('glossary')">
+                <span class="font-bold text-white text-base">Q&A</span>
+                <i class="fas fa-chevron-down text-slate-500 transition-transform ${isQaOpen ? 'rotate-180' : ''}"></i>
             </div>
-            <div class="collapsible-content">
+            <div class="collapsible-content ${isQaOpen ? 'open' : ''}">
                 <div class="p-4 bg-black/20 space-y-3">
                     <div>
                         <h5 class="text-[10px] font-black text-teal-400 uppercase">MAGI (Modified Adjusted Gross Income)</h5>

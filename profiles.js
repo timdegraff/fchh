@@ -115,7 +115,7 @@ export const PROFILE_45_COUPLE = {
         { name: 'Checking', type: 'Cash', value: 25000, costBasis: 25000 }
     ],
     stockOptions: [
-        { name: 'Company RSUs', shares: 4000, strikePrice: 1, currentPrice: 23, growth: 10, isLtcg: false }
+        { name: 'COMPANY RSU', shares: 4000, strikePrice: 1, currentPrice: 23, growth: 10, isLtcg: false }
     ],
     realEstate: [
         { name: 'Michigan Home', value: 550000, mortgage: 250000, principalPayment: 1400 }
@@ -184,7 +184,7 @@ export const PROFILE_25_SINGLE = {
         { name: 'Checking Account', type: 'Cash', value: 10000, costBasis: 10000 }
     ],
     stockOptions: [
-        { name: 'Series E RSUs', shares: 2200, strikePrice: 75, currentPrice: 100, growth: 10, isLtcg: false },
+        { name: 'COMPANY RSU', shares: 2200, strikePrice: 75, currentPrice: 100, growth: 10, isLtcg: false },
         { name: 'Series D RSUs', shares: 400, strikePrice: 40, currentPrice: 100, growth: 10, isLtcg: false }
     ],
     realEstate: [],

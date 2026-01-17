@@ -31,6 +31,16 @@ export function renderAssets(el) {
 
     const isBasisNA = (type) => ['Cash', 'Pre-Tax (401k/IRA)', 'HSA'].includes(type);
 
+    // Map section titles to shortened button text
+    const addBtnLabels = {
+        'INVESTMENTS': 'Investment',
+        'REAL ESTATE': 'Real Estate',
+        'OTHER ASSETS': 'Other Asset',
+        'HELOCS': 'HELOC',
+        'DEBTS': 'Debt',
+        'EQUITY & OPTIONS': 'Option'
+    };
+
     const sections = [
         { title: 'INVESTMENTS', icon: 'fa-chart-line', color: 'text-blue-400', data: d.investments, path: 'investments' },
         { title: 'REAL ESTATE', icon: 'fa-home', color: 'text-indigo-400', data: d.realEstate, path: 'realEstate', fields: ['value', 'mortgage'] },
@@ -71,74 +81,76 @@ export function renderAssets(el) {
                         ${sect.isOption ? `<button class="swipe-action-btn bg-slate-700" onclick="window.openAdvancedPE(${i})">Settings</button>` : ''}
                         <button class="swipe-action-btn bg-red-600" onclick="window.removeItem('${sect.path}', ${i})">Delete</button>
                     </div>
-                    <div class="swipe-content p-3 border border-white/5 flex items-center gap-3">
-                        ${sect.isOption ? '' : '<div class="drag-handle text-slate-600 px-1"><i class="fas fa-grip-vertical"></i></div>'}
-                        <div class="flex-grow space-y-0.5">
-                            <input data-path="${sect.path}.${i}.name" value="${item.name}" class="bg-transparent border-none p-0 text-[11px] font-bold text-white w-full placeholder:text-slate-600 focus:ring-0 uppercase tracking-tight">
-                            ${sect.path === 'investments' ? `
-                            <div class="flex items-center gap-2">
-                                <div class="relative w-[65%]">
-                                    <select data-path="${sect.path}.${i}.type" class="bg-slate-900 border border-white/10 rounded-lg text-[8px] font-bold uppercase w-full p-1.5 ${typeClass}">
-                                        <option value="Taxable" ${item.type === 'Taxable' ? 'selected' : ''}>Taxable</option>
-                                        <option value="Pre-Tax (401k/IRA)" ${item.type === 'Pre-Tax (401k/IRA)' ? 'selected' : ''}>Pre-Tax</option>
-                                        <option value="Roth IRA" ${item.type === 'Roth IRA' ? 'selected' : ''}>Roth IRA</option>
-                                        <option value="Cash" ${item.type === 'Cash' ? 'selected' : ''}>Cash</option>
-                                        <option value="Crypto" ${item.type === 'Crypto' ? 'selected' : ''}>Crypto</option>
-                                        <option value="Metals" ${item.type === 'Metals' ? 'selected' : ''}>Metals</option>
-                                        <option value="HSA" ${item.type === 'HSA' ? 'selected' : ''}>HSA</option>
-                                    </select>
-                                </div>
-                                <div class="flex items-center justify-end gap-1 flex-grow ${isBasisNA(item.type) ? 'opacity-0' : ''}">
-                                    <span class="text-[7px] text-slate-500 font-bold uppercase tracking-wider">Basis</span>
-                                    <input data-path="${sect.path}.${i}.costBasis" data-type="currency" inputmode="decimal" 
-                                        value="${isBasisNA(item.type) ? 'N/A' : math.toCurrency(item.costBasis)}" 
-                                        class="bg-transparent border-none p-0 text-[9px] font-bold text-right text-blue-400 w-14 focus:ring-0 ${isBasisNA(item.type) ? 'pointer-events-none' : ''}">
-                                </div>
+                    <div class="swipe-content p-3 border border-white/5 flex items-start gap-3">
+                        ${sect.isOption ? '' : '<div class="drag-handle text-slate-600 px-1 mt-1"><i class="fas fa-grip-vertical"></i></div>'}
+                        
+                        ${sect.path === 'investments' ? `
+                            <!-- Layout for Investments -->
+                            <div class="flex-grow space-y-1 pt-0.5">
+                                <input data-path="${sect.path}.${i}.name" value="${item.name}" class="bg-transparent border-none p-0 text-[11px] font-bold text-white w-full placeholder:text-slate-600 focus:ring-0 uppercase tracking-tight">
+                                <select data-path="${sect.path}.${i}.type" class="bg-slate-900 border border-white/10 rounded-lg text-[9px] font-bold uppercase w-full p-1.5 ${typeClass}">
+                                    <option value="Taxable" ${item.type === 'Taxable' ? 'selected' : ''}>Taxable</option>
+                                    <option value="Pre-Tax (401k/IRA)" ${item.type === 'Pre-Tax (401k/IRA)' ? 'selected' : ''}>Pre-Tax</option>
+                                    <option value="Roth IRA" ${item.type === 'Roth IRA' ? 'selected' : ''}>Roth IRA</option>
+                                    <option value="Cash" ${item.type === 'Cash' ? 'selected' : ''}>Cash</option>
+                                    <option value="Crypto" ${item.type === 'Crypto' ? 'selected' : ''}>Crypto</option>
+                                    <option value="Metals" ${item.type === 'Metals' ? 'selected' : ''}>Metals</option>
+                                    <option value="HSA" ${item.type === 'HSA' ? 'selected' : ''}>HSA</option>
+                                </select>
                             </div>
-                            ` : ''}
-                            ${sect.isOption ? `
-                            <div class="grid grid-cols-3 gap-1">
-                                <div>
-                                    <span class="text-[7px] text-slate-500 uppercase block">Shares</span>
-                                    <input data-path="${sect.path}.${i}.shares" type="number" inputmode="decimal" value="${item.shares}" class="bg-slate-900 border border-white/10 rounded p-1 text-[9px] text-white w-full">
-                                </div>
-                                <div>
-                                    <span class="text-[7px] text-slate-500 uppercase block">Strike</span>
-                                    <input data-path="${sect.path}.${i}.strikePrice" data-type="currency" inputmode="decimal" value="${math.toCurrency(item.strikePrice)}" class="bg-slate-900 border border-white/10 rounded p-1 text-[9px] text-orange-400 w-full">
-                                </div>
-                                <div>
-                                    <span class="text-[7px] text-slate-500 uppercase block">FMV</span>
-                                    <input data-path="${sect.path}.${i}.currentPrice" data-type="currency" inputmode="decimal" value="${math.toCurrency(item.currentPrice)}" class="bg-slate-900 border border-white/10 rounded p-1 text-[9px] text-white w-full">
-                                </div>
+                            <div class="text-right space-y-0.5 w-24 flex-shrink-0">
+                                <input data-path="${sect.path}.${i}.value" data-type="currency" inputmode="decimal" value="${math.toCurrency(item.value)}" class="bg-transparent border-none p-0 text-sm font-black text-right text-white w-full focus:ring-0">
+                                ${!isBasisNA(item.type) ? `
+                                    <input data-path="${sect.path}.${i}.costBasis" data-type="currency" inputmode="decimal" value="${math.toCurrency(item.costBasis)}" class="bg-transparent border-none p-0 text-[10px] font-bold text-right text-blue-400 w-full focus:ring-0">
+                                    <div class="text-[7px] text-slate-500 font-bold uppercase tracking-wider">Basis</div>
+                                ` : ''}
                             </div>
-                            ` : ''}
-                        </div>
-                        <div class="text-right space-y-0.5">
-                            ${sect.path === 'investments' ? `
-                                <input data-path="${sect.path}.${i}.value" data-type="currency" inputmode="decimal" value="${math.toCurrency(item.value)}" class="bg-transparent border-none p-0 text-sm font-black text-right text-white w-32 focus:ring-0">
-                            ` : (sect.isOption ? `
-                                <div class="flex flex-col justify-center h-full pt-4">
-                                    <div class="text-orange-400 font-black text-sm mono-numbers">${math.toSmartCompactCurrency(Math.max(0, (math.fromCurrency(item.currentPrice) - math.fromCurrency(item.strikePrice)) * parseFloat(item.shares)))}</div>
-                                    <span class="text-[8px] font-bold text-slate-500 uppercase mt-1">Equity</span>
-                                </div>
-                            ` : `
-                                <div class="flex items-center justify-end">
-                                    ${sect.path === 'helocs' ? '<span class="text-[7px] text-slate-500 font-bold mr-1">BAL</span>' : ''}
-                                    <input data-path="${sect.path}.${i}.${sect.fields[0]}" data-type="currency" inputmode="decimal" value="${math.toCurrency(item[sect.fields[0]])}" class="bg-transparent border-none p-0 text-sm font-black text-right ${valColorClass} w-36 focus:ring-0">
-                                </div>
-                                ${sect.fields[1] ? `
-                                <div class="flex items-center justify-end mt-1">
-                                    ${sect.path === 'helocs' ? '<span class="text-[7px] text-slate-500 font-bold mr-1">LIM</span>' : ''}
-                                    <input data-path="${sect.path}.${i}.${sect.fields[1]}" data-type="currency" inputmode="decimal" value="${math.toCurrency(item[sect.fields[1]])}" class="bg-transparent border-none p-0 text-[10px] font-bold text-right text-red-400 w-36 focus:ring-0 block">
+                        ` : `
+                            <!-- Layout for Other Sections -->
+                            <div class="flex-grow space-y-0.5 pt-0.5">
+                                <input data-path="${sect.path}.${i}.name" value="${item.name}" class="bg-transparent border-none p-0 text-[11px] font-bold text-white w-full placeholder:text-slate-600 focus:ring-0 uppercase tracking-tight">
+                                ${sect.isOption ? `
+                                <div class="grid grid-cols-3 gap-1 mt-1">
+                                    <div>
+                                        <span class="text-[7px] text-slate-500 uppercase block">Shares</span>
+                                        <input data-path="${sect.path}.${i}.shares" type="number" inputmode="decimal" value="${item.shares}" class="bg-slate-900 border border-white/10 rounded p-1 text-[9px] text-white w-full">
+                                    </div>
+                                    <div>
+                                        <span class="text-[7px] text-slate-500 uppercase block">Strike</span>
+                                        <input data-path="${sect.path}.${i}.strikePrice" data-type="currency" inputmode="decimal" value="${math.toCurrency(item.strikePrice)}" class="bg-slate-900 border border-white/10 rounded p-1 text-[9px] text-orange-400 w-full">
+                                    </div>
+                                    <div>
+                                        <span class="text-[7px] text-slate-500 uppercase block">FMV</span>
+                                        <input data-path="${sect.path}.${i}.currentPrice" data-type="currency" inputmode="decimal" value="${math.toCurrency(item.currentPrice)}" class="bg-slate-900 border border-white/10 rounded p-1 text-[9px] text-white w-full">
+                                    </div>
                                 </div>
                                 ` : ''}
-                            `)}
-                        </div>
+                            </div>
+                            <div class="text-right space-y-0.5 w-24 flex-shrink-0">
+                                ${sect.isOption ? `
+                                    <div class="flex flex-col justify-center h-full pt-1">
+                                        <div class="text-orange-400 font-black text-sm mono-numbers">${math.toSmartCompactCurrency(Math.max(0, (math.fromCurrency(item.currentPrice) - math.fromCurrency(item.strikePrice)) * parseFloat(item.shares)))}</div>
+                                        <span class="text-[8px] font-bold text-slate-500 uppercase mt-1">Equity</span>
+                                    </div>
+                                ` : `
+                                    <div class="flex items-center justify-end">
+                                        ${sect.path === 'helocs' ? '<span class="text-[7px] text-slate-500 font-bold mr-1">BAL</span>' : ''}
+                                        <input data-path="${sect.path}.${i}.${sect.fields[0]}" data-type="currency" inputmode="decimal" value="${math.toCurrency(item[sect.fields[0]])}" class="bg-transparent border-none p-0 text-sm font-black text-right ${valColorClass} w-full focus:ring-0">
+                                    </div>
+                                    ${sect.fields[1] ? `
+                                    <div class="flex items-center justify-end mt-1">
+                                        ${sect.path === 'helocs' ? '<span class="text-[7px] text-slate-500 font-bold mr-1">LIM</span>' : ''}
+                                        <input data-path="${sect.path}.${i}.${sect.fields[1]}" data-type="currency" inputmode="decimal" value="${math.toCurrency(item[sect.fields[1]])}" class="bg-transparent border-none p-0 text-[10px] font-bold text-right text-red-400 w-full focus:ring-0 block">
+                                    </div>
+                                    ` : ''}
+                                `}
+                            </div>
+                        `}
                     </div>
                 </div>`;
             }).join('')}
             <button class="section-add-btn" onclick="window.addItem('${sect.path}')">
-                <i class="fas fa-plus"></i> Add ${sect.title} Item
+                <i class="fas fa-plus"></i> + Add ${addBtnLabels[sect.title]}
             </button>
         `;
 
@@ -185,8 +197,8 @@ export function initAssetChart(data) {
             return `
             <div class="flex items-center gap-2 min-w-0">
                 <div class="w-1.5 h-1.5 rounded-full flex-shrink-0" style="background-color: ${colorMap[k]}"></div>
-                <span class="text-[10px] font-bold text-white leading-tight mono-numbers">${math.toSmartCompactCurrency(totals[k])}</span>
                 <span class="text-[9px] font-black uppercase truncate leading-none" style="color: ${colorMap[k]}">${label}</span>
+                <span class="text-[10px] font-bold text-white leading-tight mono-numbers ml-auto">${math.toSmartCompactCurrency(totals[k])}</span>
             </div>
         `}).join('');
     }
