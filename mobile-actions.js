@@ -480,9 +480,8 @@ window.attachSwipeHandlers = () => {
         el.addEventListener('touchstart', (e) => {
             startX = e.touches[0].clientX;
             startY = e.touches[0].clientY;
-            const actions = el.querySelector('.swipe-actions');
-            if(actions) actions.style.visibility = 'visible';
-
+            // Removed visibility toggling to prevent iOS click consumption
+            
             if (window.mobileState.currentSwipeEl && window.mobileState.currentSwipeEl !== content) {
                 window.mobileState.currentSwipeEl.style.transform = 'translateX(0)';
             }
@@ -514,9 +513,7 @@ window.attachSwipeHandlers = () => {
             } else {
                 content.style.transform = 'translateX(0)';
                 window.mobileState.currentSwipeEl = null;
-                // Hide actions after transition to prevent bleed
-                const actions = el.querySelector('.swipe-actions');
-                if(actions) setTimeout(() => actions.style.visibility = 'hidden', 250);
+                // No need to hide actions since they are z-indexed behind
             }
         });
     });

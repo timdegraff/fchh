@@ -366,17 +366,55 @@ export function renderFire(el) {
     const priorityOrder = d.burndown.priority;
 
     // Helper for Asset Cells in the Table
+    // IMPLEMENTATION OF "BURN PATH" HIGHLIGHTING
     const renderAssetCells = (r) => {
         return priorityOrder.map(k => {
             const meta = assetMeta[k];
             const draw = r.draws[k] || 0;
             const bal = r.balances[k] || 0;
             
-            // Only show draw if significant
+            // ACTIVE BURN CELL
             if (draw > 50) {
-                return `<td class="p-2 text-center font-black text-[10px]" style="color:${meta.color}">${math.toSmartCompactCurrency(draw)}</td>`;
-            } else {
-                return `<td class="p-2 text-center text-[8px] font-bold text-slate-600">${math.toSmartCompactCurrency(bal)}</td>`;
+                // Dynamic Styles using Asset Color
+                const border = `border: 1px solid ${meta.color}60;`;
+                const bg = `background: linear-gradient(180deg, ${meta.color}20 0%, ${meta.color}05 100%);`;
+                const glow = `box-shadow: 0 0 10px -2px ${meta.color}40;`;
+                
+                return `
+                    <td class="p-1 align-middle text-center">
+                        <div class="flex flex-col items-center justify-center py-1.5 px-1 rounded-lg relative overflow-hidden group min-w-[40px]" style="${border} ${bg} ${glow}">
+                            <!-- Active Indicator Dot -->
+                            <div class="absolute top-1 right-1 w-1 h-1 rounded-full animate-pulse" style="background-color: ${meta.color}"></div>
+                            
+                            <!-- Draw Amount (Negative) -->
+                            <span class="text-[10px] font-black tracking-tight leading-none mb-0.5" style="color: ${meta.color}; text-shadow: 0 0 8px ${meta.color}30;">
+                                -${math.toSmartCompactCurrency(draw)}
+                            </span>
+                            
+                            <!-- Remaining Balance (Subtle) -->
+                            <span class="text-[7px] font-bold text-white/50 mono-numbers leading-none">
+                                ${math.toSmartCompactCurrency(bal)}
+                            </span>
+                        </div>
+                    </td>`;
+            } 
+            // DORMANT ASSET (Has Balance, No Draw)
+            else if (bal > 100) {
+                return `
+                    <td class="p-1 align-middle text-center">
+                        <div class="py-1">
+                            <span class="text-[8px] font-bold text-slate-500 hover:text-slate-300 transition-colors cursor-default">
+                                ${math.toSmartCompactCurrency(bal)}
+                            </span>
+                        </div>
+                    </td>`;
+            } 
+            // DEPLETED ASSET
+            else {
+                return `
+                    <td class="p-1 align-middle text-center">
+                        <span class="text-[8px] text-slate-800/50 font-bold select-none">·</span>
+                    </td>`;
             }
         }).join('');
     };

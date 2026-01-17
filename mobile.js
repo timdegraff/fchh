@@ -68,19 +68,11 @@ function attachListeners() {
     // Profile Selection - Entry Point
     const guestBtn = document.getElementById('guest-btn');
     if (guestBtn) {
-        guestBtn.onclick = async () => {
+        guestBtn.onclick = () => {
             window.haptic?.();
-            console.log("Guest button clicked. Initializing default profile...");
-            try {
-                const data = PROFILE_45_COUPLE;
-                if (!data) throw new Error("Profile Data Missing");
-                
-                localStorage.setItem('firecalc_data', JSON.stringify(data));
-                window.location.reload();
-            } catch (e) {
-                console.error("Initialization Failed:", e);
-                alert("Failed to initialize app: " + e.message);
-            }
+            // Show Profile Selection Modal
+            const modal = document.getElementById('profile-modal');
+            if (modal) modal.classList.remove('hidden');
         };
     } else {
         console.warn("Guest button not found during attachListeners");
