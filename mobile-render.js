@@ -487,7 +487,7 @@ function renderIncome(el) {
                 <button class="swipe-action-btn bg-slate-700" onclick="window.openAdvancedIncome(${i})">Settings</button>
                 <button class="swipe-action-btn bg-red-600" onclick="window.removeItem('income', ${i})">Delete</button>
             </div>
-            <div class="swipe-content mobile-card p-4 border border-white/5">
+            <div class="swipe-content mobile-card p-4 border border-white/5 !mb-0">
                 <div class="flex justify-between items-center mb-3">
                     <input data-path="income.${i}.name" value="${inc.name}" class="bg-transparent border-none p-0 text-sm font-black text-white uppercase tracking-wider w-full focus:ring-0 placeholder:text-slate-600">
                     <button class="text-[9px] font-bold ${inc.isMonthly ? 'text-blue-400 bg-blue-500/10' : 'text-slate-500 bg-slate-800'} uppercase px-2 py-1 rounded-md transition-colors" onclick="const d = window.currentData.income[${i}]; d.isMonthly = !d.isMonthly; d.amount = d.isMonthly ? d.amount / 12 : d.amount * 12; window.mobileAutoSave(); window.renderApp();">
