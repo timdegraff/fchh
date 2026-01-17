@@ -1,8 +1,12 @@
 
 import { math, engine, assetColors, stateTaxRates, STATE_NAME_TO_CODE } from './utils.js';
 import { simulateProjection } from './burndown-engine.js';
+import { renderCollapsible, renderStepperSlider } from './mobile-components.js';
+import { renderAssets, updateAssetChart } from './mobile-render-assets.js';
+import { renderAid, updateAidHeader, updateAidVisuals } from './mobile-render-benefits.js';
 
-let assetChart = null;
+// Re-export specific update functions for mobile.js/actions
+export { updateAssetChart, updateAidHeader, updateAidVisuals };
 
 // Helper to access state safely
 const getState = () => window.mobileState;
@@ -43,7 +47,6 @@ export function renderApp() {
 
 export function updateHeader() {
     const left = document.getElementById('header-left');
-    const right = document.getElementById('header-right');
     const headerEl = document.querySelector('header');
     const toolbar = document.getElementById('header-toolbar');
     
@@ -87,7 +90,6 @@ export function updateHeader() {
         }
     }
 
-    // Dynamic Header Height Adjustment
     requestAnimationFrame(() => {
         const height = headerEl.offsetHeight;
         document.documentElement.style.setProperty('--header-height', `${height}px`);
@@ -116,7 +118,7 @@ export function updateHeaderContext() {
             labelToShow = 'Gross Inc';
             color = 'text-teal-400';
         } else {
-            // Calculate Retirement Income (Real $)
+            // Calculate Retirement Income logic retained for brevity, same as before
             const d = window.currentData;
             const a = d.assumptions || {};
             const curAge = parseFloat(a.currentAge) || 40;
@@ -124,13 +126,9 @@ export function updateHeaderContext() {
             const yrs = Math.max(0, retAge - curAge);
             const inf = (a.inflation || 3) / 100;
             const infFac = Math.pow(1 + inf, yrs);
-            
-            // Social Security
             const ssStart = parseFloat(a.ssStartAge) || 67;
             const ssMonthly = parseFloat(a.ssMonthly) || 0;
             const ssFull = (retAge >= ssStart) ? engine.calculateSocialSecurity(ssMonthly, a.workYearsAtRetirement || 35, infFac) : 0;
-
-            // Income Streams (Retained)
             const incStreams = (d.income || []).filter(i => i.remainsInRetirement).reduce((acc, inc) => {
                  const isMon = inc.isMonthly || inc.isMonthly === 'true';
                  const base = (parseFloat(inc.amount) || 0) * (isMon ? 12 : 1);
@@ -139,7 +137,6 @@ export function updateHeaderContext() {
                  const ded = (parseFloat(inc.incomeExpenses) || 0) * (expMon ? 12 : 1);
                  return acc + (base * growth) - ded;
             }, 0);
-            
             const retireNominal = ssFull + incStreams;
             const retireReal = retireNominal / infFac;
             valToShow = retireReal;
@@ -159,7 +156,6 @@ export function updateHeaderContext() {
         const factor = budgetMode === 'monthly' ? 1/12 : 1;
         const expenses = s.totalAnnualBudget * factor;
         const savings = s.totalAnnualSavings * factor;
-        const suffix = budgetMode === 'monthly' ? '/mo' : '/yr';
         
         html = `
             <div class="flex flex-col items-end justify-center">
@@ -183,234 +179,7 @@ export function updateHeaderContext() {
     if (activeTab === 'aid') updateAidHeader();
 }
 
-function renderAssets(el) {
-    const d = window.currentData;
-    const { collapsedSections } = getState();
-    
-    el.innerHTML = `
-        <div class="chart-container flex items-center justify-between px-2 mb-4 h-[200px]">
-            <div id="assetLegend" class="flex flex-col gap-1 w-1/2 pr-2 overflow-hidden"></div>
-            <div class="w-1/2 h-full relative flex items-center justify-center">
-                <canvas id="assetDonutChart"></canvas>
-            </div>
-        </div>
-        <div id="assets-list-container"></div>
-    `;
-    
-    setTimeout(() => initAssetChart(d), 0);
-
-    const getTypeColor = (type) => {
-        const map = {
-            'Cash': 'text-type-cash', 'Taxable': 'text-type-taxable', 'Pre-Tax (401k/IRA)': 'text-type-pretax',
-            'Roth IRA': 'text-type-posttax', 'Crypto': 'text-type-crypto', 'Metals': 'text-type-metals', 'HSA': 'text-type-hsa'
-        };
-        return map[type] || 'text-slate-400';
-    };
-
-    const isBasisNA = (type) => ['Cash', 'Pre-Tax (401k/IRA)', 'HSA'].includes(type);
-
-    const sections = [
-        { title: 'INVESTMENTS', icon: 'fa-chart-line', color: 'text-blue-400', data: d.investments, path: 'investments' },
-        { title: 'REAL ESTATE', icon: 'fa-home', color: 'text-indigo-400', data: d.realEstate, path: 'realEstate', fields: ['value', 'mortgage'] },
-        { title: 'OTHER ASSETS', icon: 'fa-car', color: 'text-teal-400', data: d.otherAssets, path: 'otherAssets', fields: ['value', 'loan'] },
-        { title: 'HELOCS', icon: 'fa-university', color: 'text-red-400', data: d.helocs, path: 'helocs', fields: ['balance', 'limit'] },
-        { title: 'DEBTS', icon: 'fa-credit-card', color: 'text-pink-400', data: d.debts, path: 'debts', fields: ['balance'] },
-        { title: 'EQUITY & OPTIONS', icon: 'fa-briefcase', color: 'text-orange-400', data: d.stockOptions, path: 'stockOptions', isOption: true }
-    ];
-
-    document.getElementById('assets-list-container').innerHTML = sections.map((sect) => {
-        let net = 0;
-        (sect.data || []).forEach(item => {
-            if (sect.isOption) {
-                const shares = parseFloat(item.shares) || 0;
-                const strike = math.fromCurrency(item.strikePrice);
-                const fmv = math.fromCurrency(item.currentPrice);
-                net += Math.max(0, (fmv - strike) * shares);
-            } else if (sect.path === 'investments' || sect.path === 'otherAssets') {
-                net += math.fromCurrency(item.value) - math.fromCurrency(item.loan || 0);
-            } else if (sect.path === 'realEstate') {
-                net += math.fromCurrency(item.value) - math.fromCurrency(item.mortgage);
-            } else if (sect.path === 'helocs' || sect.path === 'debts') {
-                net -= math.fromCurrency(item.balance);
-            }
-        });
-        const netColor = net >= 0 ? 'text-emerald-400' : 'text-red-400';
-        const netDisplay = net !== 0 ? math.toSmartCompactCurrency(net) : '';
-
-        return `
-        <div class="collapsible-section">
-            <div class="collapsible-header ${collapsedSections[sect.title] ? '' : 'active'}" onclick="window.toggleSection('${sect.title}')">
-                <div class="flex items-center gap-3">
-                    <i class="fas ${sect.icon} ${sect.color} w-5 text-center"></i>
-                    <span class="font-bold text-white text-base">${sect.title}</span>
-                </div>
-                <div class="flex items-center gap-2">
-                    <span class="text-xs font-black ${netColor} mono-numbers">${netDisplay}</span>
-                    <i class="fas fa-chevron-down text-slate-500 transition-transform ${collapsedSections[sect.title] ? '' : 'rotate-180'}"></i>
-                </div>
-            </div>
-            <div class="collapsible-content ${collapsedSections[sect.title] ? '' : 'open'}">
-                <div class="p-3 space-y-2 sortable-list">
-                    ${(sect.data || []).map((item, i) => {
-                        const typeClass = sect.path === 'investments' ? getTypeColor(item.type) : 'text-slate-400';
-                        const valColorClass = (sect.path === 'debts' || sect.path === 'helocs') ? 'text-red-400' : 'text-white';
-                        
-                        return `
-                        <div class="swipe-container">
-                            <div class="swipe-actions">
-                                ${sect.isOption ? `<button class="swipe-action-btn bg-slate-700" onclick="window.openAdvancedPE(${i})">Settings</button>` : ''}
-                                <button class="swipe-action-btn bg-red-600" onclick="window.removeItem('${sect.path}', ${i})">Delete</button>
-                            </div>
-                            <div class="swipe-content p-3 border border-white/5 flex items-center gap-3">
-                                ${sect.isOption ? '' : '<div class="drag-handle text-slate-600 px-1"><i class="fas fa-grip-vertical"></i></div>'}
-                                <div class="flex-grow space-y-0.5">
-                                    <input data-path="${sect.path}.${i}.name" value="${item.name}" class="bg-transparent border-none p-0 text-[11px] font-bold text-white w-full placeholder:text-slate-600 focus:ring-0 uppercase tracking-tight">
-                                    ${sect.path === 'investments' ? `
-                                    <div class="flex items-center gap-3">
-                                        <div class="relative w-[50%]">
-                                            <select data-path="${sect.path}.${i}.type" class="bg-slate-900 border border-white/10 rounded-lg text-[9px] font-bold uppercase w-full p-1.5 ${typeClass}">
-                                                <option value="Taxable" ${item.type === 'Taxable' ? 'selected' : ''}>Taxable</option>
-                                                <option value="Pre-Tax (401k/IRA)" ${item.type === 'Pre-Tax (401k/IRA)' ? 'selected' : ''}>Pre-Tax</option>
-                                                <option value="Roth IRA" ${item.type === 'Roth IRA' ? 'selected' : ''}>Roth IRA</option>
-                                                <option value="Cash" ${item.type === 'Cash' ? 'selected' : ''}>Cash</option>
-                                                <option value="Crypto" ${item.type === 'Crypto' ? 'selected' : ''}>Crypto</option>
-                                                <option value="Metals" ${item.type === 'Metals' ? 'selected' : ''}>Metals</option>
-                                                <option value="HSA" ${item.type === 'HSA' ? 'selected' : ''}>HSA</option>
-                                            </select>
-                                        </div>
-                                        <div class="flex items-center gap-1 ${isBasisNA(item.type) ? 'opacity-0' : ''}">
-                                            <span class="text-[7px] text-slate-500 font-bold uppercase tracking-wider">Basis</span>
-                                            <input data-path="${sect.path}.${i}.costBasis" data-type="currency" inputmode="decimal" 
-                                                value="${isBasisNA(item.type) ? 'N/A' : math.toCurrency(item.costBasis)}" 
-                                                class="bg-transparent border-none p-0 text-[9px] font-bold text-left text-blue-400 w-16 focus:ring-0 ${isBasisNA(item.type) ? 'pointer-events-none' : ''}">
-                                        </div>
-                                    </div>
-                                    ` : ''}
-                                    ${sect.isOption ? `
-                                    <div class="grid grid-cols-3 gap-1">
-                                        <div>
-                                            <span class="text-[7px] text-slate-500 uppercase block">Shares</span>
-                                            <input data-path="${sect.path}.${i}.shares" type="number" inputmode="decimal" value="${item.shares}" class="bg-slate-900 border border-white/10 rounded p-1 text-[9px] text-white w-full">
-                                        </div>
-                                        <div>
-                                            <span class="text-[7px] text-slate-500 uppercase block">Strike</span>
-                                            <input data-path="${sect.path}.${i}.strikePrice" data-type="currency" inputmode="decimal" value="${math.toCurrency(item.strikePrice)}" class="bg-slate-900 border border-white/10 rounded p-1 text-[9px] text-orange-400 w-full">
-                                        </div>
-                                        <div>
-                                            <span class="text-[7px] text-slate-500 uppercase block">FMV</span>
-                                            <input data-path="${sect.path}.${i}.currentPrice" data-type="currency" inputmode="decimal" value="${math.toCurrency(item.currentPrice)}" class="bg-slate-900 border border-white/10 rounded p-1 text-[9px] text-white w-full">
-                                        </div>
-                                    </div>
-                                    ` : ''}
-                                </div>
-                                <div class="text-right space-y-0.5">
-                                    ${sect.path === 'investments' ? `
-                                        <input data-path="${sect.path}.${i}.value" data-type="currency" inputmode="decimal" value="${math.toCurrency(item.value)}" class="bg-transparent border-none p-0 text-sm font-black text-right text-white w-32 focus:ring-0">
-                                    ` : (sect.isOption ? `
-                                        <div class="flex flex-col justify-center h-full pt-4">
-                                            <div class="text-orange-400 font-black text-sm mono-numbers">${math.toSmartCompactCurrency(Math.max(0, (math.fromCurrency(item.currentPrice) - math.fromCurrency(item.strikePrice)) * parseFloat(item.shares)))}</div>
-                                            <span class="text-[8px] font-bold text-slate-500 uppercase mt-1">Equity</span>
-                                        </div>
-                                    ` : `
-                                        <input data-path="${sect.path}.${i}.${sect.fields[0]}" data-type="currency" inputmode="decimal" value="${math.toCurrency(item[sect.fields[0]])}" class="bg-transparent border-none p-0 text-sm font-black text-right ${valColorClass} w-36 focus:ring-0">
-                                        ${sect.fields[1] ? `<input data-path="${sect.path}.${i}.${sect.fields[1]}" data-type="currency" inputmode="decimal" value="${math.toCurrency(item[sect.fields[1]])}" class="bg-transparent border-none p-0 text-[10px] font-bold text-right text-red-400 w-36 focus:ring-0 block mt-1">` : ''}
-                                    `)}
-                                </div>
-                            </div>
-                        </div>`;
-                    }).join('')}
-                    <button class="section-add-btn" onclick="window.addItem('${sect.path}')">
-                        <i class="fas fa-plus"></i> Add ${sect.title} Item
-                    </button>
-                </div>
-            </div>
-        </div>`;
-    }).join('');
-}
-
-function initAssetChart(data) {
-    const ctx = document.getElementById('assetDonutChart');
-    if (!ctx) return;
-    
-    const totals = {};
-    const colorMap = {};
-    
-    data.investments?.forEach(i => {
-        const val = math.fromCurrency(i.value);
-        if (val > 0) {
-            totals[i.type] = (totals[i.type] || 0) + val;
-            colorMap[i.type] = assetColors[i.type] || '#fff';
-        }
-    });
-    
-    const optVal = data.stockOptions?.reduce((s, x) => {
-        const sh = parseFloat(x.shares)||0;
-        const st = math.fromCurrency(x.strikePrice);
-        const fmv = math.fromCurrency(x.currentPrice);
-        return s + Math.max(0, (fmv - st) * sh);
-    }, 0) || 0;
-    if (optVal > 0) { totals['Stock Options'] = optVal; colorMap['Stock Options'] = assetColors['Stock Options']; }
-    
-    const reVal = data.realEstate?.reduce((s, r) => s + Math.max(0, math.fromCurrency(r.value) - math.fromCurrency(r.mortgage)), 0) || 0;
-    if (reVal > 0) { totals['Real Estate'] = reVal; colorMap['Real Estate'] = assetColors['Real Estate']; }
-    
-    // Sort by value desc
-    const sortedKeys = Object.keys(totals).sort((a,b) => totals[b] - totals[a]);
-    const values = sortedKeys.map(k => totals[k]);
-    const colors = sortedKeys.map(k => colorMap[k]);
-    
-    // Populate Legend on Left
-    const legend = document.getElementById('assetLegend');
-    if (legend) {
-        legend.innerHTML = sortedKeys.map(k => {
-            const label = k === 'Stock Options' ? 'Options' : k.replace(/\(.*\)/, '');
-            return `
-            <div class="flex items-center gap-2 min-w-0">
-                <div class="w-1.5 h-1.5 rounded-full flex-shrink-0" style="background-color: ${colorMap[k]}"></div>
-                <span class="text-[10px] font-bold text-white leading-tight mono-numbers">${math.toSmartCompactCurrency(totals[k])}</span>
-                <span class="text-[9px] font-black uppercase text-slate-400 truncate leading-none">${label}</span>
-            </div>
-        `}).join('');
-    }
-
-    if (assetChart) assetChart.destroy();
-
-    assetChart = new Chart(ctx, {
-        type: 'doughnut',
-        data: {
-            labels: sortedKeys,
-            datasets: [{
-                data: values,
-                backgroundColor: colors,
-                borderWidth: 0,
-                hoverOffset: 2
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            cutout: '70%', 
-            layout: { padding: 0 },
-            plugins: {
-                legend: { display: false },
-                tooltip: {
-                    callbacks: {
-                        label: (ctx) => ` ${ctx.label}: ${math.toSmartCompactCurrency(ctx.raw)}`
-                    },
-                    backgroundColor: '#1e293b',
-                    bodyFont: { family: 'Inter', weight: 'bold' }
-                }
-            }
-        }
-    });
-}
-
-export function updateAssetChart(data) {
-    if (!assetChart) return;
-    initAssetChart(data); 
-}
-
-function renderIncome(el) {
+export function renderIncome(el) {
     const d = window.currentData;
     const age = d.assumptions?.currentAge || 40;
     const kLimit = age >= 50 ? 31000 : 23500;
@@ -494,7 +263,7 @@ function renderIncome(el) {
     });
 }
 
-function renderBudget(el) {
+export function renderBudget(el) {
     const d = window.currentData;
     const { budgetMode, collapsedSections } = getState();
     const isMon = budgetMode === 'monthly';
@@ -521,7 +290,7 @@ function renderBudget(el) {
 
         const bgClass = item.isLocked ? 'bg-[#1e293b]' : 'bg-[#1e293b]';
         const disabledAttr = item.isLocked ? 'disabled style="pointer-events: none;"' : '';
-        const opacityClass = item.isLocked ? '' : ''; // No extra shading for locked row
+        const opacityClass = item.isLocked ? '' : ''; 
 
         return `
         <div class="swipe-container relative">
@@ -570,81 +339,36 @@ function renderBudget(el) {
         </div>`;
     };
 
-    // Check if 401k auto-row exists in data or needs calculation
     const s = engine.calculateSummaries(d);
     const auto401k = { type: 'Pre-Tax (401k/IRA)', annual: s.total401kContribution, monthly: s.total401kContribution/12, isLocked: true };
-    
-    // Filter out old locked items to prevent duplicates if any
     const savingsList = (d.budget?.savings || []).filter(s => !s.isLocked);
     
-    el.innerHTML = `
-        <div class="collapsible-section">
-            <div class="collapsible-header ${collapsedSections['Savings'] ? '' : 'active'}" onclick="window.toggleSection('Savings')">
-                <span class="font-bold text-white text-base uppercase">SAVINGS</span>
-                <i class="fas fa-chevron-down text-slate-500 transition-transform ${collapsedSections['Savings'] ? '' : 'rotate-180'}"></i>
-            </div>
-            <div class="collapsible-content ${collapsedSections['Savings'] ? '' : 'open'} bg-black/20">
-                <div class="px-4 sortable-list">
-                    ${renderRow(auto401k, -1, 'savings')}
-                    ${savingsList.map((s, i) => renderRow(s, i, 'savings')).join('')}
-                    <button class="section-add-btn" onclick="window.addItem('budget.savings')">
-                        <i class="fas fa-plus"></i> Add Savings
-                    </button>
-                </div>
-            </div>
-        </div>
+    // Using renderCollapsible for Budget Sections
+    const savingsContent = `
+        ${renderRow(auto401k, -1, 'savings')}
+        ${savingsList.map((s, i) => renderRow(s, i, 'savings')).join('')}
+        <button class="section-add-btn" onclick="window.addItem('budget.savings')">
+            <i class="fas fa-plus"></i> Add Savings
+        </button>
+    `;
 
-        <div class="collapsible-section">
-             <div class="collapsible-header ${collapsedSections['Expenses'] ? '' : 'active'}" onclick="window.toggleSection('Expenses')">
-                <span class="font-bold text-white text-base uppercase">EXPENSES</span>
-                <i class="fas fa-chevron-down text-slate-500 transition-transform ${collapsedSections['Expenses'] ? '' : 'rotate-180'}"></i>
-            </div>
-            <div class="collapsible-content ${collapsedSections['Expenses'] ? '' : 'open'} bg-black/20">
-                <div class="px-4 sortable-list">
-                     ${(d.budget?.expenses || []).map((s, i) => renderRow(s, i, 'expenses')).join('')}
-                     <button class="section-add-btn" onclick="window.addItem('budget.expenses')">
-                        <i class="fas fa-plus"></i> Add Expense
-                    </button>
-                </div>
-            </div>
-        </div>
+    const expensesContent = `
+        ${(d.budget?.expenses || []).map((s, i) => renderRow(s, i, 'expenses')).join('')}
+        <button class="section-add-btn" onclick="window.addItem('budget.expenses')">
+            <i class="fas fa-plus"></i> Add Expense
+        </button>
+    `;
+
+    el.innerHTML = `
+        ${renderCollapsible('Savings', 'SAVINGS', savingsContent, !collapsedSections['Savings'], null, 'text-white', '', 'bg-black/20')}
+        ${renderCollapsible('Expenses', 'EXPENSES', expensesContent, !collapsedSections['Expenses'], null, 'text-white', '', 'bg-black/20')}
     `;
 }
 
-function renderConfig(el) {
+export function renderConfig(el) {
     const a = window.currentData.assumptions;
     const { collapsedSections } = getState();
     
-    // Updated Helper: Slider with +/- Stepper Buttons
-    const stepperSlider = (label, path, min, max, step, val, suffix = '', color='text-white') => `
-        <div class="mb-5">
-            <div class="flex justify-between items-end mb-2">
-                <span class="text-[10px] font-bold ${color} uppercase tracking-widest">${label}</span>
-                <div class="flex items-center gap-3">
-                    <button class="w-6 h-6 flex items-center justify-center bg-slate-800 rounded text-slate-400 hover:text-white" onclick="window.stepConfig('${path}', -${step})"><i class="fas fa-minus text-[8px]"></i></button>
-                    <span class="${color} font-black text-sm mono-numbers w-12 text-center">${val}${suffix}</span>
-                    <button class="w-6 h-6 flex items-center justify-center bg-slate-800 rounded text-slate-400 hover:text-white" onclick="window.stepConfig('${path}', ${step})"><i class="fas fa-plus text-[8px]"></i></button>
-                </div>
-            </div>
-            <input type="range" data-path="assumptions.${path}" min="${min}" max="${max}" step="${step}" value="${val}" class="w-full h-1 bg-slate-700 rounded-lg appearance-none cursor-pointer">
-        </div>
-    `;
-
-    // Render Collapsible Card helper
-    const renderCard = (title, content, id) => `
-        <div class="collapsible-section">
-            <div class="collapsible-header ${collapsedSections[id] ? '' : 'active'}" onclick="window.toggleSection('${id}')">
-                <span class="font-bold text-white text-base uppercase tracking-widest">${title}</span>
-                <i class="fas fa-chevron-down text-slate-500 transition-transform ${collapsedSections[id] ? '' : 'rotate-180'}"></i>
-            </div>
-            <div class="collapsible-content ${collapsedSections[id] ? '' : 'open'}">
-                <div class="mobile-card !border-none !bg-transparent !mb-0">
-                    ${content}
-                </div>
-            </div>
-        </div>
-    `;
-
     const personalContent = `
         <div class="grid grid-cols-2 gap-3 mb-4">
             <label class="block">
@@ -665,31 +389,31 @@ function renderConfig(el) {
                 </select>
             </label>
         </div>
-        ${stepperSlider('Current Age', 'currentAge', 18, 80, 1, a.currentAge, '', 'text-white')}
-        ${stepperSlider('Retirement Age', 'retirementAge', 18, 80, 1, a.retirementAge, '', 'text-blue-400')}
-        ${stepperSlider('SS Start Age', 'ssStartAge', 62, 70, 1, a.ssStartAge, '', 'text-teal-400')}
-        ${stepperSlider('SS Monthly', 'ssMonthly', 0, 5000, 100, a.ssMonthly, '', 'text-teal-400')}
+        ${renderStepperSlider('Current Age', 'currentAge', 18, 80, 1, a.currentAge, '', 'text-white')}
+        ${renderStepperSlider('Retirement Age', 'retirementAge', 18, 80, 1, a.retirementAge, '', 'text-blue-400')}
+        ${renderStepperSlider('SS Start Age', 'ssStartAge', 62, 70, 1, a.ssStartAge, '', 'text-teal-400')}
+        ${renderStepperSlider('SS Monthly', 'ssMonthly', 0, 5000, 100, a.ssMonthly, '', 'text-teal-400')}
     `;
 
-    // Updated Market Content: Metals before Real Estate
     const marketContent = `
-        ${stepperSlider('Stocks (APY)', 'stockGrowth', 0, 15, 0.5, a.stockGrowth, '%', 'text-blue-400')}
-        ${stepperSlider('Crypto (APY)', 'cryptoGrowth', 0, 15, 0.5, a.cryptoGrowth, '%', 'text-slate-400')}
-        ${stepperSlider('Metals (APY)', 'metalsGrowth', 0, 15, 0.5, a.metalsGrowth || 6, '%', 'text-amber-400')}
-        ${stepperSlider('Real Estate (APY)', 'realEstateGrowth', 0, 10, 0.5, a.realEstateGrowth, '%', 'text-indigo-400')}
-        ${stepperSlider('Inflation', 'inflation', 0, 10, 0.1, a.inflation, '%', 'text-red-400')}
+        ${renderStepperSlider('Stocks (APY)', 'stockGrowth', 0, 15, 0.5, a.stockGrowth, '%', 'text-blue-400')}
+        ${renderStepperSlider('Crypto (APY)', 'cryptoGrowth', 0, 15, 0.5, a.cryptoGrowth, '%', 'text-slate-400')}
+        ${renderStepperSlider('Metals (APY)', 'metalsGrowth', 0, 15, 0.5, a.metalsGrowth || 6, '%', 'text-amber-400')}
+        ${renderStepperSlider('Real Estate (APY)', 'realEstateGrowth', 0, 10, 0.5, a.realEstateGrowth, '%', 'text-indigo-400')}
+        ${renderStepperSlider('Inflation', 'inflation', 0, 10, 0.1, a.inflation, '%', 'text-red-400')}
     `;
 
     const phasesContent = `
-        ${stepperSlider('Go-Go (Age 60-70)', 'phaseGo1', 50, 150, 5, Math.round((a.phaseGo1 || 1.0) * 100), '%', 'text-purple-400')}
-        ${stepperSlider('Slow-Go (Age 70-80)', 'phaseGo2', 50, 150, 5, Math.round((a.phaseGo2 || 0.9) * 100), '%', 'text-purple-400')}
-        ${stepperSlider('No-Go (Age 80+)', 'phaseGo3', 50, 150, 5, Math.round((a.phaseGo3 || 0.8) * 100), '%', 'text-purple-400')}
+        ${renderStepperSlider('Go-Go (Age 60-70)', 'phaseGo1', 50, 150, 5, Math.round((a.phaseGo1 || 1.0) * 100), '%', 'text-purple-400')}
+        ${renderStepperSlider('Slow-Go (Age 70-80)', 'phaseGo2', 50, 150, 5, Math.round((a.phaseGo2 || 0.9) * 100), '%', 'text-purple-400')}
+        ${renderStepperSlider('No-Go (Age 80+)', 'phaseGo3', 50, 150, 5, Math.round((a.phaseGo3 || 0.8) * 100), '%', 'text-purple-400')}
     `;
 
+    // Wrap contents in Collapsible helper
     el.innerHTML = `
-        ${renderCard('Personal', personalContent, 'PersonalConfig')}
-        ${renderCard('Market', marketContent, 'MarketConfig')}
-        ${renderCard('Retirement Phases', phasesContent, 'PhaseConfig')}
+        ${renderCollapsible('PersonalConfig', 'PERSONAL', personalContent, !collapsedSections['PersonalConfig'], null, 'text-white')}
+        ${renderCollapsible('MarketConfig', 'MARKET', marketContent, !collapsedSections['MarketConfig'], null, 'text-white')}
+        ${renderCollapsible('PhaseConfig', 'RETIREMENT PHASES', phasesContent, !collapsedSections['PhaseConfig'], null, 'text-white')}
         
         <div class="mt-8 p-4 bg-red-900/10 border border-red-500/20 rounded-xl text-center">
             <button onclick="if(confirm('Reset all data?')) { localStorage.removeItem('firecalc_data'); window.location.reload(); }" class="text-red-400 font-bold uppercase text-xs tracking-widest">
@@ -699,330 +423,7 @@ function renderConfig(el) {
     `;
 }
 
-function updateAidHeader() {
-    const d = window.currentData;
-    const ben = d.benefits;
-    const size = 1 + (d.assumptions.filingStatus === 'Married Filing Jointly' ? 1 : 0) + (ben.dependents || []).length;
-    const magi = ben.unifiedIncomeAnnual;
-    const fpl = math.getFPL(size, d.assumptions.state);
-    const ratio = magi / fpl;
-    
-    let status = 'MARKET';
-    if (ratio <= 1.38 || ben.isPregnant || ben.isDisabled) { status = 'PLATINUM'; }
-    else if (ratio <= 2.5) { status = 'SILVER'; }
-    
-    const snap = engine.calculateSnapBenefit(
-        ben.isEarnedIncome ? magi/12 : 0, 
-        ben.isEarnedIncome ? 0 : magi/12, 
-        0, size, ben.shelterCosts, ben.hasSUA, ben.isDisabled, 
-        ben.childSupportPaid, ben.depCare, ben.medicalExps, 
-        d.assumptions.state, 1, true
-    );
-
-    const right = document.getElementById('header-right');
-    if (!right) return;
-    right.innerHTML = `
-        <div class="text-[9px] font-bold text-slate-500 uppercase tracking-widest">${status}</div>
-        <div class="font-black text-emerald-400 text-lg tracking-tighter mono-numbers">${math.toCurrency(snap)}/mo</div>
-    `;
-}
-
-function updateAidVisuals() {
-    const d = window.currentData;
-    const ben = d.benefits;
-    const size = 1 + (d.assumptions.filingStatus === 'Married Filing Jointly' ? 1 : 0) + (ben.dependents || []).length;
-    const magi = ben.unifiedIncomeAnnual;
-    
-    // Update MAGI Label
-    const magiLabel = document.getElementById('aid-magi-val');
-    if (magiLabel) magiLabel.textContent = `${math.toCurrency(magi)}/yr`;
-
-    // Recalc SNAP
-    const snapVal = engine.calculateSnapBenefit(
-        ben.isEarnedIncome ? magi/12 : 0, 
-        ben.isEarnedIncome ? 0 : magi/12, 
-        0, size, ben.shelterCosts, ben.hasSUA, ben.isDisabled, 
-        ben.childSupportPaid, ben.depCare, ben.medicalExps, 
-        d.assumptions.state, 1, true
-    );
-    const snapEl = document.getElementById('aid-snap-val');
-    if (snapEl) snapEl.textContent = math.toCurrency(snapVal);
-
-    // Dynamic Plan Name & Styling
-    const fpl = math.getFPL(size, d.assumptions.state);
-    const ratio = magi / fpl;
-    const medLimitRatio = ben.isPregnant ? 2.0 : 1.38;
-    const stateId = d.assumptions.state;
-    const stateMeta = stateTaxRates[stateId];
-    const isExpandedState = stateMeta?.expanded !== false;
-    const hasMedicaidPathway = isExpandedState || ben.isPregnant || ben.isDisabled;
-    const isInMedicaidGap = !hasMedicaidPathway && ratio < 1.0;
-
-    const planTitle = document.getElementById('aid-plan-title');
-    const planSub = document.getElementById('aid-plan-sub');
-    const planPrem = document.getElementById('aid-plan-prem');
-    const planDed = document.getElementById('aid-plan-ded');
-    const planCard = document.getElementById('aid-plan-card');
-
-    if (planTitle && planCard) {
-        // Simple class reset (brute force for stability)
-        planCard.className = "mobile-card border-2 transition-colors duration-300";
-        planTitle.className = "text-xl font-black uppercase tracking-tight";
-        
-        let theme = {}, pName = "", pSub = "", pPrem = "", pDed = "";
-        
-        // Cliff Logic for Subsidy
-        let dynamicPremium = 0;
-        const cliffRatio = 4.0;
-        if (ratio > medLimitRatio) {
-             let contributionPct = 0;
-             if (ratio < cliffRatio) {
-                const minScale = 0.021, maxScale = 0.095;
-                contributionPct = minScale + (ratio - 1) * (maxScale - minScale) / (cliffRatio - 1);
-             } else {
-                contributionPct = 1.0;
-             }
-             dynamicPremium = (magi * contributionPct) / 12;
-             if (ratio >= cliffRatio) dynamicPremium = 1100;
-        }
-
-        if (isInMedicaidGap) {
-            pName = "MEDICAID GAP"; pSub = "NO COVERAGE"; pPrem = math.toCurrency(1100); pDed = "$10,000+";
-            theme = { text: "text-red-400", border: "border-red-500/50", bg: "bg-red-900/10" };
-        } else if (ratio <= medLimitRatio && hasMedicaidPathway) {
-            pName = ben.isPregnant ? "Platinum (Pregnancy)" : (ben.isDisabled ? "Platinum (Disability)" : "Platinum (Medicaid)");
-            pSub = "100% Full Coverage"; pPrem = "$0"; pDed = "$0";
-            theme = { text: "text-emerald-400", border: "border-emerald-500/50", bg: "bg-emerald-900/10" };
-        } else if (ratio <= 2.5) {
-            pName = "Silver CSR"; pSub = "High Subsidy / Low Copay"; pPrem = math.toCurrency(dynamicPremium); pDed = "~$800";
-            theme = { text: "text-blue-400", border: "border-blue-500/50", bg: "bg-blue-900/10" };
-        } else {
-            pName = "Market ACA"; pSub = "Standard Subsidy / Cliff"; pPrem = math.toCurrency(dynamicPremium); pDed = "$4,000+";
-            theme = { text: "text-slate-400", border: "border-white/10", bg: "bg-slate-900/30" };
-        }
-
-        planCard.classList.add(theme.bg, theme.border);
-        planTitle.classList.add(theme.text);
-        planTitle.textContent = pName;
-        if(planSub) planSub.textContent = pSub;
-        if(planPrem) planPrem.textContent = pPrem;
-        if(planDed) planDed.textContent = pDed;
-    }
-}
-
-function renderAid(el) {
-    const d = window.currentData;
-    const ben = d.benefits || { dependents: [] };
-    const size = 1 + (d.assumptions.filingStatus === 'Married Filing Jointly' ? 1 : 0) + (ben.dependents || []).length;
-    const magi = ben.unifiedIncomeAnnual;
-    const fpl = math.getFPL(size, d.assumptions.state);
-    const ratio = magi / fpl;
-    const stateId = d.assumptions.state;
-    const stateMeta = stateTaxRates[stateId];
-    const isExpandedState = stateMeta?.expanded !== false;
-    const hasMedicaidPathway = isExpandedState || ben.isPregnant || ben.isDisabled;
-    const isInMedicaidGap = !hasMedicaidPathway && ratio < 1.0;
-
-    // Initial Static Render Logic (same as updateAidVisuals but for initial HTML generation)
-    // Duplicate logic to ensure first paint is correct
-    let planName = "", planSub = "", prem = "", ded = "", theme = {};
-    const medLimitRatio = ben.isPregnant ? 2.0 : 1.38;
-    
-    let dynamicPremium = 0;
-    const cliffRatio = 4.0;
-    if (ratio > medLimitRatio) {
-         let contributionPct = 0;
-         if (ratio < cliffRatio) {
-            const minScale = 0.021, maxScale = 0.095;
-            contributionPct = minScale + (ratio - 1) * (maxScale - minScale) / (cliffRatio - 1);
-         } else {
-            contributionPct = 1.0;
-         }
-         dynamicPremium = (magi * contributionPct) / 12;
-         if (ratio >= cliffRatio) dynamicPremium = 1100;
-    }
-
-    if (isInMedicaidGap) {
-        planName = "MEDICAID GAP"; planSub = "NO COVERAGE"; prem = math.toCurrency(1100); ded = "$10,000+";
-        theme = { text: "text-red-400", border: "border-red-500/50", bg: "bg-red-900/10" };
-    } else if (ratio <= medLimitRatio && hasMedicaidPathway) {
-        planName = ben.isPregnant ? "Platinum (Pregnancy)" : (ben.isDisabled ? "Platinum (Disability)" : "Platinum (Medicaid)");
-        planSub = "100% Full Coverage"; prem = "$0"; ded = "$0";
-        theme = { text: "text-emerald-400", border: "border-emerald-500/50", bg: "bg-emerald-900/10" };
-    } else if (ratio <= 2.5) {
-        planName = "Silver CSR"; planSub = "High Subsidy / Low Copay"; prem = math.toCurrency(dynamicPremium); ded = "~$800";
-        theme = { text: "text-blue-400", border: "border-blue-500/50", bg: "bg-blue-900/10" };
-    } else {
-        planName = "Market ACA"; planSub = "Standard Subsidy / Cliff"; prem = math.toCurrency(dynamicPremium); ded = "$4,000+";
-        theme = { text: "text-slate-400", border: "border-white/10", bg: "bg-slate-900/30" };
-    }
-    
-    el.innerHTML = `
-        <!-- CARD 1: HEALTHCARE & INCOME -->
-        <div id="aid-plan-card" class="mobile-card ${theme.bg} border-2 ${theme.border} py-3">
-            <div class="flex items-center gap-3 mb-2 border-b border-white/5 pb-2">
-                <div class="w-8 h-8 rounded-lg bg-blue-500/20 flex items-center justify-center text-blue-400"><i class="fas fa-heartbeat"></i></div>
-                <h3 class="font-black text-white text-sm uppercase tracking-widest">Healthcare & Income</h3>
-            </div>
-
-            <div class="text-center py-1 mb-2">
-                <div id="aid-plan-title" class="text-xl font-black uppercase tracking-tight ${theme.text}">${planName}</div>
-                <div id="aid-plan-sub" class="text-[9px] font-black uppercase tracking-widest text-slate-500 mt-1">${planSub}</div>
-                <div class="flex justify-center gap-4 mt-2">
-                     <span class="text-[9px] font-black text-slate-400 uppercase tracking-widest">PREM: <span id="aid-plan-prem" class="text-white">${prem}</span></span>
-                     <span class="text-[9px] font-black text-slate-400 uppercase tracking-widest">DED: <span id="aid-plan-ded" class="text-white">${ded}</span></span>
-                </div>
-            </div>
-
-            <div class="space-y-4">
-                 <div>
-                     <div class="flex justify-between items-center mb-1">
-                         <span class="text-[10px] font-bold text-slate-500 uppercase">Sandbox MAGI</span>
-                         <span id="aid-magi-val" class="text-teal-400 font-black text-sm mono-numbers">${math.toCurrency(magi)}/yr</span>
-                     </div>
-                     <input type="range" data-path="benefits.unifiedIncomeAnnual" min="0" max="150000" step="1000" value="${magi}" class="w-full h-1 bg-slate-700 rounded-lg appearance-none cursor-pointer">
-                 </div>
-                 <div class="flex justify-between items-center bg-black/20 p-2 rounded-lg">
-                    <span class="text-[10px] font-bold text-slate-500 uppercase">Income Type</span>
-                    <label class="flex items-center gap-2">
-                        <input type="checkbox" data-path="benefits.isEarnedIncome" ${ben.isEarnedIncome ? 'checked' : ''} class="rounded bg-slate-800 border-none text-blue-500">
-                        <span class="text-[10px] font-bold text-white uppercase">${ben.isEarnedIncome ? 'Earned (W2)' : 'Unearned (1099/Div)'}</span>
-                    </label>
-                 </div>
-            </div>
-        </div>
-
-        <!-- CARD 2: SNAP & HOUSEHOLD -->
-        <div class="mobile-card bg-emerald-900/10 border border-emerald-500/20 py-3">
-            <div class="flex items-center gap-3 mb-2 border-b border-white/5 pb-2">
-                <div class="w-8 h-8 rounded-lg bg-emerald-500/20 flex items-center justify-center text-emerald-500"><i class="fas fa-shopping-basket"></i></div>
-                <h3 class="font-black text-white text-sm uppercase tracking-widest">SNAP & Household</h3>
-            </div>
-
-            <div class="flex flex-col items-center mb-3">
-                <span class="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1">Monthly Food Benefit</span>
-                <span id="aid-snap-val" class="text-4xl font-black text-emerald-400 mono-numbers tracking-tight">$0</span>
-            </div>
-
-            <div class="space-y-4">
-                <!-- Household List -->
-                <div>
-                    <div class="flex justify-between items-center mb-2">
-                        <span class="text-[10px] font-bold text-slate-500 uppercase">Children</span>
-                        <button onclick="window.addItem('benefits.dependents')" class="text-[9px] font-bold text-blue-400 uppercase bg-blue-500/10 px-2 py-1 rounded hover:bg-blue-500/20 transition-colors">+ Add Child</button>
-                    </div>
-                    <div class="space-y-2">
-                        ${(ben.dependents || []).map((dep, i) => `
-                            <div class="flex items-center gap-2 bg-black/20 p-2 rounded-lg border border-white/5">
-                                <div class="w-6 h-6 rounded-full bg-slate-800 flex items-center justify-center text-slate-500 text-[10px]"><i class="fas fa-child"></i></div>
-                                <input data-path="benefits.dependents.${i}.name" value="${dep.name}" class="bg-transparent border-none text-xs font-bold text-white flex-grow focus:ring-0 placeholder:text-slate-600" placeholder="Name">
-                                <div class="flex items-center gap-1">
-                                    <span class="text-[8px] font-bold text-slate-600 uppercase">Born</span>
-                                    <input data-path="benefits.dependents.${i}.birthYear" type="number" inputmode="numeric" value="${dep.birthYear}" class="bg-transparent border-none text-xs font-black text-blue-400 w-12 text-center focus:ring-0">
-                                </div>
-                                <button onclick="window.removeItem('benefits.dependents', ${i})" class="text-slate-600 px-2 hover:text-red-400"><i class="fas fa-times"></i></button>
-                            </div>
-                        `).join('')}
-                        ${(ben.dependents || []).length === 0 ? '<div class="text-[10px] text-slate-600 text-center italic py-2">No dependents added</div>' : ''}
-                    </div>
-                </div>
-
-                <!-- Expense Grid -->
-                <div class="grid grid-cols-2 gap-3 pt-2">
-                     <div>
-                         <label class="block text-[8px] font-bold text-slate-500 uppercase mb-1">Shelter Costs</label>
-                         <input data-path="benefits.shelterCosts" data-type="currency" inputmode="decimal" value="${math.toCurrency(ben.shelterCosts)}" class="w-full bg-black/20 border border-white/5 rounded p-2 text-xs text-white font-bold text-right">
-                     </div>
-                     <div>
-                         <label class="block text-[8px] font-bold text-slate-500 uppercase mb-1">Medical Exp</label>
-                         <input data-path="benefits.medicalExps" data-type="currency" inputmode="decimal" value="${math.toCurrency(ben.medicalExps)}" class="w-full bg-black/20 border border-white/5 rounded p-2 text-xs text-blue-400 font-bold text-right">
-                     </div>
-                     <div>
-                         <label class="block text-[8px] font-bold text-slate-500 uppercase mb-1">Child Support Pd</label>
-                         <input data-path="benefits.childSupportPaid" data-type="currency" inputmode="decimal" value="${math.toCurrency(ben.childSupportPaid)}" class="w-full bg-black/20 border border-white/5 rounded p-2 text-xs text-pink-400 font-bold text-right">
-                     </div>
-                     <div>
-                         <label class="block text-[8px] font-bold text-slate-500 uppercase mb-1">Dependent Care</label>
-                         <input data-path="benefits.depCare" data-type="currency" inputmode="decimal" value="${math.toCurrency(ben.depCare)}" class="w-full bg-black/20 border border-white/5 rounded p-2 text-xs text-white font-bold text-right">
-                     </div>
-                </div>
-
-                <!-- Toggles Footer -->
-                <div class="flex justify-between items-center pt-2 border-t border-white/5">
-                    <label class="flex flex-col items-center gap-1 cursor-pointer">
-                        <input type="checkbox" data-path="benefits.isDisabled" ${ben.isDisabled ? 'checked' : ''} class="peer sr-only">
-                        <div class="w-8 h-4 bg-slate-800 rounded-full peer-checked:bg-purple-600 transition-colors relative after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:after:translate-x-full"></div>
-                        <span class="text-[8px] font-bold text-slate-500 uppercase peer-checked:text-white">Disabled</span>
-                    </label>
-                    <label class="flex flex-col items-center gap-1 cursor-pointer">
-                        <input type="checkbox" data-path="benefits.isPregnant" ${ben.isPregnant ? 'checked' : ''} class="peer sr-only">
-                        <div class="w-8 h-4 bg-slate-800 rounded-full peer-checked:bg-teal-600 transition-colors relative after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:after:translate-x-full"></div>
-                        <span class="text-[8px] font-bold text-slate-500 uppercase peer-checked:text-white">Pregnant</span>
-                    </label>
-                    <label class="flex flex-col items-center gap-1 cursor-pointer">
-                        <input type="checkbox" data-path="benefits.hasSUA" ${ben.hasSUA ? 'checked' : ''} class="peer sr-only">
-                        <div class="w-8 h-4 bg-slate-800 rounded-full peer-checked:bg-blue-600 transition-colors relative after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:after:translate-x-full"></div>
-                        <span class="text-[8px] font-bold text-slate-500 uppercase peer-checked:text-white">Utility Allowance</span>
-                    </label>
-                </div>
-            </div>
-        </div>
-        
-        <!-- DISCLAIMERS (DESKTOP COPY) -->
-        <div class="space-y-4 pb-4">
-            <div class="p-3 bg-blue-900/10 border border-blue-500/20 rounded-xl">
-                <h4 class="text-[10px] font-black text-blue-400 uppercase tracking-widest mb-1 flex items-center gap-2"><i class="fas fa-info-circle"></i> Benefit Modeling Logic</h4>
-                <div class="space-y-2">
-                    <p class="text-[10px] text-slate-400 leading-relaxed">
-                        <strong class="text-white">Asset Test:</strong> This calculator ignores asset tests. Be aware that the following states typically enforce asset limits ($2,750 - $5,000) which may disqualify you if you have savings: <strong>Texas, Idaho, Indiana, Iowa, Kansas, Mississippi, Missouri, South Dakota, Tennessee, Wyoming.</strong>
-                    </p>
-                    <p class="text-[10px] text-slate-400 leading-relaxed">
-                        <strong class="text-white">Birth Years:</strong> Dependents are modeled as independent at age 19. Birth years making a child 19 or older in the current year are excluded from the effective household size.
-                    </p>
-                </div>
-            </div>
-            <div class="p-3 bg-orange-900/10 border border-orange-500/20 rounded-xl">
-                <h4 class="text-[10px] font-black text-orange-400 uppercase tracking-widest mb-1 flex items-center gap-2"><i class="fas fa-shield-virus"></i> Medicaid Expansion Logic</h4>
-                <div class="space-y-2">
-                    <p class="text-[10px] text-slate-400 leading-relaxed">
-                        <strong class="text-white">Expansion States:</strong> Cover adults up to 138% FPL ($0 cost). 
-                    </p>
-                    <p class="text-[10px] text-slate-400 leading-relaxed">
-                        <strong class="text-white">Non-Expansion:</strong> Adults under 100% FPL receive no ACA subsidy and no Medicaid. Recommend increasing MAGI to qualify for premium tax credits.
-                    </p>
-                </div>
-            </div>
-        </div>
-
-        <!-- GLOSSARY -->
-        <div class="collapsible-section">
-            <div class="collapsible-header" onclick="window.toggleSection('glossary')">
-                <span class="font-bold text-white text-base">Glossary & Definitions</span>
-                <i class="fas fa-chevron-down text-slate-500 transition-transform ${collapsedSections['glossary'] ? '' : 'rotate-180'}"></i>
-            </div>
-            <div class="collapsible-content ${collapsedSections['glossary'] ? '' : 'open'}">
-                <div class="p-4 bg-black/20 space-y-3">
-                    <div>
-                        <h5 class="text-[10px] font-black text-teal-400 uppercase">MAGI (Modified Adjusted Gross Income)</h5>
-                        <p class="text-[10px] text-slate-400 leading-relaxed mt-1">Income used to determine eligibility for ACA subsidies and Medicaid. Includes wages, taxable interest, and social security, but excludes most pre-tax deductions.</p>
-                    </div>
-                    <div>
-                        <h5 class="text-[10px] font-black text-teal-400 uppercase">SUA (Standard Utility Allowance)</h5>
-                        <p class="text-[10px] text-slate-400 leading-relaxed mt-1">A fixed dollar amount deduction for household utility costs (heating/cooling) used in SNAP calculations. Qualifying for SUA often significantly increases food benefits.</p>
-                    </div>
-                    <div>
-                        <h5 class="text-[10px] font-black text-teal-400 uppercase">FPL (Federal Poverty Level)</h5>
-                        <p class="text-[10px] text-slate-400 leading-relaxed mt-1">A measure of income issued annually by HHS. Subsidy levels are tied to percentages of FPL (e.g. Medicaid is 138% FPL, ACA Cliffs are 400% FPL).</p>
-                    </div>
-                </div>
-            </div>
-        </div>
-    `;
-    
-    updateAidVisuals();
-}
-
-function renderFire(el) {
+export function renderFire(el) {
     if (!window.currentData) return;
     const { collapsedSections } = getState();
     const s = engine.calculateSummaries(window.currentData);
@@ -1033,7 +434,8 @@ function renderFire(el) {
         priority: ['cash', 'roth-basis', 'taxable', 'crypto', 'metals', 'heloc', '401k', 'hsa', 'roth-earnings']
     });
 
-    el.innerHTML = `
+    // Fire Table is raw HTML for now, could be componentized later if needed
+    const fireTable = `
         <div class="mobile-card p-0 overflow-hidden mt-4">
             <table class="fire-table">
                 <thead class="bg-slate-900/50">
@@ -1051,23 +453,22 @@ function renderFire(el) {
                 </tbody>
             </table>
         </div>
-        
-        <div class="mt-8">
-            <div class="collapsible-section">
-                <div class="collapsible-header" onclick="window.toggleSection('trace')">
-                    <span class="font-bold text-white text-base">Logic Trace</span>
-                    <i class="fas fa-chevron-down text-slate-500 transition-transform ${collapsedSections['trace'] ? '' : 'rotate-180'}"></i>
-                </div>
-                <div class="collapsible-content ${collapsedSections['trace'] ? '' : 'open'}">
-                    <div class="p-4 bg-black/20 font-mono text-[10px] text-slate-400 max-h-60 overflow-y-auto">
-                        <div class="flex items-center gap-2 mb-2">
-                            <span>Year:</span>
-                            <input type="number" id="trace-year-input" class="bg-slate-800 text-white w-16 p-1 rounded" value="${new Date().getFullYear()}">
-                        </div>
-                        <div id="mobile-trace-output"></div>
-                    </div>
-                </div>
+    `;
+
+    const traceContent = `
+        <div class="p-4 bg-black/20 font-mono text-[10px] text-slate-400 max-h-60 overflow-y-auto">
+            <div class="flex items-center gap-2 mb-2">
+                <span>Year:</span>
+                <input type="number" id="trace-year-input" class="bg-slate-800 text-white w-16 p-1 rounded" value="${new Date().getFullYear()}">
             </div>
+            <div id="mobile-trace-output"></div>
+        </div>
+    `;
+
+    el.innerHTML = `
+        ${fireTable}
+        <div class="mt-8">
+            ${renderCollapsible('trace', 'Logic Trace', traceContent, !collapsedSections['trace'])}
         </div>
     `;
     
