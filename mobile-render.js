@@ -75,7 +75,9 @@ export function updateHeader() {
 
     left.innerHTML = `
         <div class="flex items-center gap-2.5">
-            <i class="fas fa-fire text-purple-500 text-lg"></i>
+            <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-purple-600 to-pink-600 flex items-center justify-center shadow-lg shadow-purple-900/20 ring-1 ring-white/10">
+                <i class="fas fa-fire text-sm text-white"></i>
+            </div>
             <div>
                 <h1 class="font-black text-white text-lg leading-none tracking-tight">FireCalc</h1>
                 <p class="text-[10px] font-bold ${colors[activeTab]} uppercase tracking-widest mt-0.5">${titles[activeTab]}</p>
@@ -201,8 +203,13 @@ export function renderIncome(el) {
             </div>
             <div class="swipe-content mobile-card !mb-0 rounded-xl overflow-hidden">
                 <div class="flex justify-between items-start mb-4 border-b border-white/5 pb-3">
-                    <input data-path="income.${i}.name" value="${inc.name}" class="bg-transparent text-sm font-black text-white w-full border-none p-0 focus:ring-0 uppercase tracking-tight" placeholder="SOURCE NAME">
-                    <label class="flex items-center gap-1.5">
+                    <div class="flex items-center gap-2 flex-grow">
+                        <div class="w-6 h-6 rounded-md bg-teal-500/20 flex items-center justify-center text-teal-400 shrink-0">
+                            <i class="fas fa-dollar-sign text-[10px]"></i>
+                        </div>
+                        <input data-path="income.${i}.name" value="${inc.name}" class="bg-transparent text-sm font-black text-white w-full border-none p-0 focus:ring-0 uppercase tracking-tight" placeholder="SOURCE NAME">
+                    </div>
+                    <label class="flex items-center gap-1.5 ml-2">
                         <input type="checkbox" data-path="income.${i}.remainsInRetirement" ${inc.remainsInRetirement ? 'checked' : ''} class="w-3 h-3 rounded bg-slate-700 border-none text-blue-500">
                         <span class="text-[8px] font-bold text-slate-500 uppercase">Retirement?</span>
                     </label>

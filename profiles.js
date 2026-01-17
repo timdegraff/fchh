@@ -20,7 +20,8 @@ export const BLANK_PROFILE = {
     ],
     helocs: [
         { name: 'HOME', balance: 0, limit: 273750, rate: 6.75 },
-        { name: 'RENTAL', balance: 0, limit: 120000, rate: 6.75 }
+        { name: 'RENTAL', balance: 0, limit: 120000, rate: 6.75 },
+        { name: 'EMERGENCY LINE', balance: 0, limit: 100000, rate: 8.5 }
     ],
     otherAssets: [
         { name: 'RV', value: 25000, loan: 0 },
@@ -28,7 +29,8 @@ export const BLANK_PROFILE = {
         { name: 'TRACTOR', value: 40000, loan: 25000 }
     ],
     debts: [
-        { name: 'HOME DEPOT', balance: 16500, principalPayment: 160 }
+        { name: 'HOME DEPOT', balance: 16500, principalPayment: 160 },
+        { name: 'CREDIT CARDS', balance: 7000, principalPayment: 200 }
     ],
     income: [
         { name: 'GM SALARY', amount: 186561, increase: 3.5, contribution: 12.5, match: 10, bonusPct: 23, isMonthly: false, incomeExpenses: 0, remainsInRetirement: false, contribOnBonus: false, matchOnBonus: false },
@@ -113,10 +115,19 @@ export const PROFILE_45_COUPLE = {
         { name: 'Checking', type: 'Cash', value: 25000, costBasis: 25000 }
     ],
     stockOptions: [
-        { name: 'Company RSUs', shares: 20000, strikePrice: 1, currentPrice: 23, growth: 10, isLtcg: false }
+        { name: 'Company RSUs', shares: 4000, strikePrice: 1, currentPrice: 23, growth: 10, isLtcg: false }
     ],
     realEstate: [
         { name: 'Michigan Home', value: 550000, mortgage: 250000, principalPayment: 1400 }
+    ],
+    otherAssets: [
+        { name: 'Family SUV', value: 30000, loan: 12000 }
+    ],
+    helocs: [
+        { name: 'Emergency Line', balance: 0, limit: 100000, rate: 8.5 }
+    ],
+    debts: [
+        { name: 'Credit Cards', balance: 7000, principalPayment: 200 }
     ],
     income: [
         { name: 'Primary Income', amount: 175000, increase: 3, contribution: 12, match: 4, bonusPct: 10, isMonthly: false, incomeExpenses: 0, contribOnBonus: false, matchOnBonus: false, remainsInRetirement: false },
@@ -177,11 +188,15 @@ export const PROFILE_25_SINGLE = {
         { name: 'Series D RSUs', shares: 400, strikePrice: 40, currentPrice: 100, growth: 10, isLtcg: false }
     ],
     realEstate: [],
+    helocs: [
+        { name: 'Emergency Line', balance: 0, limit: 100000, rate: 8.5 }
+    ],
     income: [
         { name: 'Tech Salary', amount: 125000, increase: 3, contribution: 19.0, match: 3, bonusPct: 10, isMonthly: false, incomeExpenses: 0, contribOnBonus: false, matchOnBonus: false }
     ],
     debts: [
-        { name: 'Student Loans', balance: 12000, principalPayment: 250 }
+        { name: 'Student Loans', balance: 12000, principalPayment: 250 },
+        { name: 'Credit Cards', balance: 7000, principalPayment: 200 }
     ],
     budget: {
         savings: [
@@ -228,6 +243,12 @@ export const PROFILE_55_RETIREE = {
     ],
     realEstate: [
         { name: 'Florida Home (Paid Off)', value: 600000, mortgage: 0, principalPayment: 0 }
+    ],
+    helocs: [
+        { name: 'Emergency Line', balance: 0, limit: 100000, rate: 8.5 }
+    ],
+    debts: [
+        { name: 'Credit Cards', balance: 7000, principalPayment: 200 }
     ],
     income: [
         { name: 'Executive Salary', amount: 250000, increase: 2, contribution: 20, match: 4, bonusPct: 15, isMonthly: false, incomeExpenses: 0, remainsInRetirement: false, contribOnBonus: false, matchOnBonus: false },

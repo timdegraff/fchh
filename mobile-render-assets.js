@@ -122,8 +122,16 @@ export function renderAssets(el) {
                                     <span class="text-[8px] font-bold text-slate-500 uppercase mt-1">Equity</span>
                                 </div>
                             ` : `
-                                <input data-path="${sect.path}.${i}.${sect.fields[0]}" data-type="currency" inputmode="decimal" value="${math.toCurrency(item[sect.fields[0]])}" class="bg-transparent border-none p-0 text-sm font-black text-right ${valColorClass} w-36 focus:ring-0">
-                                ${sect.fields[1] ? `<input data-path="${sect.path}.${i}.${sect.fields[1]}" data-type="currency" inputmode="decimal" value="${math.toCurrency(item[sect.fields[1]])}" class="bg-transparent border-none p-0 text-[10px] font-bold text-right text-red-400 w-36 focus:ring-0 block mt-1">` : ''}
+                                <div class="flex items-center justify-end">
+                                    ${sect.path === 'helocs' ? '<span class="text-[7px] text-slate-500 font-bold mr-1">BAL</span>' : ''}
+                                    <input data-path="${sect.path}.${i}.${sect.fields[0]}" data-type="currency" inputmode="decimal" value="${math.toCurrency(item[sect.fields[0]])}" class="bg-transparent border-none p-0 text-sm font-black text-right ${valColorClass} w-36 focus:ring-0">
+                                </div>
+                                ${sect.fields[1] ? `
+                                <div class="flex items-center justify-end mt-1">
+                                    ${sect.path === 'helocs' ? '<span class="text-[7px] text-slate-500 font-bold mr-1">LIM</span>' : ''}
+                                    <input data-path="${sect.path}.${i}.${sect.fields[1]}" data-type="currency" inputmode="decimal" value="${math.toCurrency(item[sect.fields[1]])}" class="bg-transparent border-none p-0 text-[10px] font-bold text-right text-red-400 w-36 focus:ring-0 block">
+                                </div>
+                                ` : ''}
                             `)}
                         </div>
                     </div>
@@ -178,7 +186,7 @@ export function initAssetChart(data) {
             <div class="flex items-center gap-2 min-w-0">
                 <div class="w-1.5 h-1.5 rounded-full flex-shrink-0" style="background-color: ${colorMap[k]}"></div>
                 <span class="text-[10px] font-bold text-white leading-tight mono-numbers">${math.toSmartCompactCurrency(totals[k])}</span>
-                <span class="text-[9px] font-black uppercase text-slate-400 truncate leading-none">${label}</span>
+                <span class="text-[9px] font-black uppercase truncate leading-none" style="color: ${colorMap[k]}">${label}</span>
             </div>
         `}).join('');
     }
