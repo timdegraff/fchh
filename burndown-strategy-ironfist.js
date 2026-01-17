@@ -122,7 +122,8 @@ export function solveIronFist(ctx) {
 
         if (pk === 'heloc') bal['heloc'] += bestDraw;
         else {
-            if (bal[pk+'Basis']) bal[pk+'Basis'] -= (bal[pk+'Basis'] * (bestDraw / bal[pk]));
+            // Fix: Guard against division by zero (0/0 = NaN) which corrupts the simulation trace
+            if (bal[pk+'Basis'] && bal[pk] > 0) bal[pk+'Basis'] -= (bal[pk+'Basis'] * (bestDraw / bal[pk]));
             bal[pk] -= bestDraw;
         }
     }

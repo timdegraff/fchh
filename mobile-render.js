@@ -614,48 +614,54 @@ function renderBudget(el) {
 
 function renderConfig(el) {
     const a = window.currentData.assumptions;
-    
-    el.innerHTML = `
-        <div class="mobile-card p-4 space-y-6">
-            <h3 class="text-xs font-black text-white uppercase tracking-widest mb-4 border-b border-white/5 pb-2">Timeline & Profile</h3>
-            ${renderStepperSlider('Current Age', 'assumptions.currentAge', 18, 70, 1, a.currentAge, '')}
-            ${renderStepperSlider('Retirement Age', 'assumptions.retirementAge', 30, 80, 1, a.retirementAge, '', 'text-blue-400')}
-            
-            <div class="grid grid-cols-2 gap-4">
-                <div>
-                    <label class="text-[9px] font-bold text-slate-500 uppercase block mb-1">Filing Status</label>
-                    <select data-path="assumptions.filingStatus" class="bg-slate-900 border border-white/10 rounded-lg text-xs font-bold text-white w-full p-2">
-                        <option value="Single" ${a.filingStatus === 'Single' ? 'selected' : ''}>Single</option>
-                        <option value="Married Filing Jointly" ${a.filingStatus === 'Married Filing Jointly' ? 'selected' : ''}>Married Jointly</option>
-                        <option value="Head of Household" ${a.filingStatus === 'Head of Household' ? 'selected' : ''}>Head of HH</option>
-                    </select>
-                </div>
-                <div>
-                    <label class="text-[9px] font-bold text-slate-500 uppercase block mb-1">State Tax</label>
-                    <select data-path="assumptions.state" class="bg-slate-900 border border-white/10 rounded-lg text-xs font-bold text-white w-full p-2">
-                        ${Object.keys(stateTaxRates).sort().map(s => `<option value="${s}" ${a.state === s ? 'selected' : ''}>${s}</option>`).join('')}
-                    </select>
-                </div>
-            </div>
-        </div>
+    const { collapsedSections } = getState();
 
-        <div class="mobile-card p-4 space-y-6">
-            <h3 class="text-xs font-black text-white uppercase tracking-widest mb-4 border-b border-white/5 pb-2">Market Assumptions</h3>
-            ${renderStepperSlider('Stock Growth', 'assumptions.stockGrowth', 0, 15, 0.5, a.stockGrowth, '%', 'text-blue-400')}
-            ${renderStepperSlider('Real Estate', 'assumptions.realEstateGrowth', 0, 10, 0.5, a.realEstateGrowth, '%', 'text-indigo-400')}
-            ${renderStepperSlider('Crypto Growth', 'assumptions.cryptoGrowth', 0, 20, 1, a.cryptoGrowth, '%', 'text-slate-400')}
-            ${renderStepperSlider('Metals Growth', 'assumptions.metalsGrowth', 0, 15, 0.5, a.metalsGrowth, '%', 'text-amber-500')}
-            ${renderStepperSlider('Inflation', 'assumptions.inflation', 0, 10, 0.1, a.inflation, '%', 'text-red-400')}
-        </div>
-        
-        <div class="mobile-card p-4 space-y-6">
-            <h3 class="text-xs font-black text-white uppercase tracking-widest mb-4 border-b border-white/5 pb-2">Spending Phases</h3>
-            ${renderStepperSlider('Go-Go (Age 30-60)', 'assumptions.phaseGo1', 50, 150, 5, Math.round(a.phaseGo1 * 100), '%', 'text-purple-400')}
-            ${renderStepperSlider('Slow-Go (Age 60-80)', 'assumptions.phaseGo2', 50, 150, 5, Math.round(a.phaseGo2 * 100), '%', 'text-purple-400')}
-            ${renderStepperSlider('No-Go (Age 80+)', 'assumptions.phaseGo3', 50, 150, 5, Math.round(a.phaseGo3 * 100), '%', 'text-purple-400')}
-        </div>
+    const sections = [
+        {
+            id: 'timeline', title: 'TIMELINE & PROFILE', icon: 'fa-clock', color: 'text-blue-400',
+            content: `
+                ${renderStepperSlider('Current Age', 'assumptions.currentAge', 18, 70, 1, a.currentAge, '')}
+                ${renderStepperSlider('Retirement Age', 'assumptions.retirementAge', 30, 80, 1, a.retirementAge, '', 'text-blue-400')}
+                <div class="grid grid-cols-2 gap-4 mt-4">
+                    <div>
+                        <label class="text-[9px] font-bold text-slate-500 uppercase block mb-1">Filing Status</label>
+                        <select data-path="assumptions.filingStatus" class="bg-slate-900 border border-white/10 rounded-lg text-xs font-bold text-white w-full p-2">
+                            <option value="Single" ${a.filingStatus === 'Single' ? 'selected' : ''}>Single</option>
+                            <option value="Married Filing Jointly" ${a.filingStatus === 'Married Filing Jointly' ? 'selected' : ''}>Married Jointly</option>
+                            <option value="Head of Household" ${a.filingStatus === 'Head of Household' ? 'selected' : ''}>Head of HH</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="text-[9px] font-bold text-slate-500 uppercase block mb-1">State Tax</label>
+                        <select data-path="assumptions.state" class="bg-slate-900 border border-white/10 rounded-lg text-xs font-bold text-white w-full p-2">
+                            ${Object.keys(stateTaxRates).sort().map(s => `<option value="${s}" ${a.state === s ? 'selected' : ''}>${s}</option>`).join('')}
+                        </select>
+                    </div>
+                </div>
+            `
+        },
+        {
+            id: 'market', title: 'MARKET ASSUMPTIONS', icon: 'fa-chart-line', color: 'text-orange-400',
+            content: `
+                ${renderStepperSlider('Stock Growth', 'assumptions.stockGrowth', 0, 15, 0.5, a.stockGrowth, '%', 'text-blue-400')}
+                ${renderStepperSlider('Real Estate', 'assumptions.realEstateGrowth', 0, 10, 0.5, a.realEstateGrowth, '%', 'text-indigo-400')}
+                ${renderStepperSlider('Crypto Growth', 'assumptions.cryptoGrowth', 0, 20, 1, a.cryptoGrowth, '%', 'text-slate-400')}
+                ${renderStepperSlider('Metals Growth', 'assumptions.metalsGrowth', 0, 15, 0.5, a.metalsGrowth, '%', 'text-amber-500')}
+                ${renderStepperSlider('Inflation', 'assumptions.inflation', 0, 10, 0.1, a.inflation, '%', 'text-red-400')}
+            `
+        },
+        {
+            id: 'phases', title: 'SPENDING PHASES', icon: 'fa-walking', color: 'text-purple-400',
+            content: `
+                ${renderStepperSlider('Go-Go (Age 30-60)', 'assumptions.phaseGo1', 50, 150, 5, Math.round(a.phaseGo1 * 100), '%', 'text-purple-400')}
+                ${renderStepperSlider('Slow-Go (Age 60-80)', 'assumptions.phaseGo2', 50, 150, 5, Math.round(a.phaseGo2 * 100), '%', 'text-purple-400')}
+                ${renderStepperSlider('No-Go (Age 80+)', 'assumptions.phaseGo3', 50, 150, 5, Math.round(a.phaseGo3 * 100), '%', 'text-purple-400')}
+            `
+        }
+    ];
 
-        <button onclick="if(confirm('This will wipe all data and reload the app. Continue?')) { localStorage.removeItem('firecalc_data'); window.location.reload(); }" class="w-full py-4 bg-red-500/10 hover:bg-red-500/20 text-red-500 font-bold uppercase text-xs rounded-xl transition-colors border border-red-500/20 mb-8">
+    el.innerHTML = sections.map(s => renderCollapsible(s.id, s.title, s.content, !collapsedSections[s.id], s.icon, s.color)).join('') + `
+        <button onclick="if(confirm('This will wipe all data and reload the app. Continue?')) { localStorage.removeItem('firecalc_data'); window.location.reload(); }" class="w-full py-4 bg-red-500/10 hover:bg-red-500/20 text-red-500 font-bold uppercase text-xs rounded-xl transition-colors border border-red-500/20 mb-8 mt-4">
             Reset Data & Reload
         </button>
     `;

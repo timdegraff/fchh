@@ -120,7 +120,8 @@ export function solveHandoutHunter(ctx) {
         if (key === 'heloc') {
             bal['heloc'] += amount;
         } else {
-            if (bal[key+'Basis']) {
+            // Fix: Guard against division by zero (0/0 = NaN)
+            if (bal[key+'Basis'] && bal[key] > 0) {
                 const ratio = amount / bal[key];
                 bal[key+'Basis'] -= (bal[key+'Basis'] * ratio);
             }
