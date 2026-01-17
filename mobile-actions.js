@@ -79,6 +79,12 @@ window.toggleIncomeHeaderMode = () => {
     renderApp();
 };
 
+window.toggleAssetHeaderMode = () => {
+    haptic();
+    window.mobileState.assetDisplayMode = window.mobileState.assetDisplayMode === 'networth' ? 'investments' : 'networth';
+    renderApp();
+};
+
 window.toggleFireMode = () => {
     haptic();
     if (!window.currentData.burndown) window.currentData.burndown = {};

@@ -170,15 +170,36 @@ export function updateHeaderContext() {
     const right = document.getElementById('header-right');
     if (!right || !window.currentData) return;
     
-    const { activeTab, incomeDisplayMode, budgetMode } = getState();
+    const { activeTab, incomeDisplayMode, budgetMode, assetDisplayMode } = getState();
     const s = engine.calculateSummaries(window.currentData);
     
     let html = '';
     if (activeTab === 'assets') {
-        const color = s.netWorth >= 0 ? 'text-emerald-400' : 'text-red-400';
+        const d = window.currentData;
+        let val, label, color;
+        
+        if (assetDisplayMode === 'investments') {
+            const invSum = (d.investments || []).reduce((acc, i) => acc + math.fromCurrency(i.value), 0);
+            const optSum = (d.stockOptions || []).reduce((acc, i) => {
+                 const eq = Math.max(0, (math.fromCurrency(i.currentPrice) - math.fromCurrency(i.strikePrice)) * parseFloat(i.shares));
+                 return acc + eq;
+            }, 0);
+            val = invSum + optSum;
+            label = 'Investments';
+            color = 'text-blue-400';
+        } else {
+            val = s.netWorth;
+            label = 'Net Worth';
+            color = val >= 0 ? 'text-emerald-400' : 'text-red-400';
+        }
+
         html = `
-            <div class="text-[9px] font-bold text-slate-500 uppercase tracking-widest">Net Worth</div>
-            <div class="font-black ${color} text-lg tracking-tighter mono-numbers">${math.toSmartCompactCurrency(s.netWorth)}</div>
+            <div class="text-right cursor-pointer" onclick="window.toggleAssetHeaderMode()">
+                <div class="flex items-center justify-end gap-1 text-[9px] font-bold text-slate-500 uppercase tracking-widest">
+                    ${label} <i class="fas fa-sync-alt text-[8px] opacity-50"></i>
+                </div>
+                <div class="font-black ${color} text-lg tracking-tighter mono-numbers">${math.toSmartCompactCurrency(val)}</div>
+            </div>
         `;
     } else if (activeTab === 'income') {
         let valToShow, labelToShow, color;
@@ -402,7 +423,7 @@ export function renderBudget(el) {
                 `}
                 <button class="swipe-action-btn bg-red-600" onclick="window.removeItem('budget.${type}', ${i})">Delete</button>
             </div>
-            <div class="swipe-content ${bgClass} ${opacityClass} border-b border-white/5 py-3 flex items-center justify-between">
+            <div class="swipe-content ${bgClass} ${opacityClass} border-b border-white/5 py-3 px-3 flex items-center justify-between">
                 ${item.isLocked ? '<div class="w-2"></div>' : `
                     <div class="flex flex-col gap-1.5 pr-3 mr-2">
                         <button onclick="window.moveItem('budget.${type}', ${i}, -1)" class="text-slate-700 hover:text-white active:text-blue-400 transition-colors h-3 flex items-center"><i class="fas fa-chevron-up text-[10px]"></i></button>

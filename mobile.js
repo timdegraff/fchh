@@ -10,6 +10,7 @@ window.mobileState = {
     activeTab: 'assets',
     budgetMode: 'annual',
     incomeDisplayMode: 'current',
+    assetDisplayMode: 'networth',
     collapsedSections: {},
     currentSwipeEl: null
 };
