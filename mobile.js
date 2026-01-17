@@ -8,7 +8,7 @@ import './mobile-actions.js'; // Registers window globals
 // --- APP STATE ---
 window.mobileState = {
     activeTab: 'assets',
-    budgetMode: 'annual',
+    budgetMode: 'monthly', // Changed default to Monthly
     incomeDisplayMode: 'current',
     assetDisplayMode: 'networth',
     collapsedSections: {},
@@ -28,6 +28,12 @@ async function init() {
     } else {
         try {
             await initializeData();
+            
+            // Restore User UI Preferences
+            if (window.currentData && window.currentData.ui && window.currentData.ui.mobileBudgetMode) {
+                window.mobileState.budgetMode = window.currentData.ui.mobileBudgetMode;
+            }
+
             const login = document.getElementById('login-screen');
             const app = document.getElementById('app-container');
             if (login) login.classList.add('hidden');

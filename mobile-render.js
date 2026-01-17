@@ -10,6 +10,20 @@ import { renderTrace } from './burndown-render.js';
 // Re-export specific update functions for mobile.js/actions
 export { updateAssetChart, updateAidHeader, updateAidVisuals };
 
+// Constants
+const assetMeta = {
+    'cash': { label: 'Cash', short: 'Cash', color: assetColors['Cash'], isTaxable: false },
+    'taxable': { label: 'Brokerage', short: 'Brokerage', color: assetColors['Taxable'], isTaxable: true }, 
+    'roth-basis': { label: 'Roth Basis', short: 'Roth Basis', color: assetColors['Roth IRA'], isTaxable: false },
+    'heloc': { label: 'HELOC', short: 'HELOC', color: assetColors['HELOC'], isTaxable: false },
+    '401k': { label: '401k/IRA', short: '401k/IRA', color: assetColors['Pre-Tax (401k/IRA)'], isTaxable: true },
+    'roth-earnings': { label: 'Roth Gains', short: 'Roth Gains', color: assetColors['Roth IRA'], isTaxable: false },
+    'crypto': { label: 'Crypto', short: 'Crypto', color: assetColors['Crypto'], isTaxable: true },
+    'metals': { label: 'Metals', short: 'Metals', color: assetColors['Metals'], isTaxable: true },
+    'hsa': { label: 'HSA', short: 'HSA', color: assetColors['HSA'], isTaxable: false }
+};
+const defaultPriorityOrder = ['cash', 'roth-basis', 'taxable', 'crypto', 'metals', 'heloc', '401k', 'hsa', 'roth-earnings'];
+
 // Helper to access state safely
 const getState = () => window.mobileState;
 
@@ -550,60 +564,73 @@ export function renderConfig(el) {
     `;
 }
 
+export function renderPriorityList() {
+    const listEl = document.getElementById('priority-list-content');
+    if (!listEl || !window.currentData) return;
+    
+    // Ensure priority exists
+    if (!window.currentData.burndown) window.currentData.burndown = {};
+    if (!window.currentData.burndown.priority) window.currentData.burndown.priority = [...defaultPriorityOrder];
+    
+    const priority = window.currentData.burndown.priority;
+    
+    listEl.innerHTML = priority.map((key, i) => {
+        const meta = assetMeta[key] || { label: key, color: '#64748b' };
+        return `
+            <div class="flex items-center justify-between p-3 bg-black/20 rounded-xl border border-white/5">
+                <div class="flex items-center gap-3">
+                    <div class="w-2 h-2 rounded-full" style="background-color: ${meta.color}"></div>
+                    <span class="text-sm font-bold text-white">${meta.label}</span>
+                </div>
+                <div class="flex gap-2">
+                    <button onclick="window.movePriorityItem(${i}, -1)" class="w-8 h-8 flex items-center justify-center bg-slate-800 rounded-lg text-slate-400 hover:text-white" ${i === 0 ? 'disabled style="opacity:0.3"' : ''}>
+                        <i class="fas fa-chevron-up"></i>
+                    </button>
+                    <button onclick="window.movePriorityItem(${i}, 1)" class="w-8 h-8 flex items-center justify-center bg-slate-800 rounded-lg text-slate-400 hover:text-white" ${i === priority.length - 1 ? 'disabled style="opacity:0.3"' : ''}>
+                        <i class="fas fa-chevron-down"></i>
+                    </button>
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+
 export function renderFire(el) {
     if (!window.currentData) return;
     const { collapsedSections } = getState();
     const d = window.currentData;
     const s = engine.calculateSummaries(d);
     
-    // Config Extraction
-    const strategyMode = d.burndown?.strategyMode || 'RAW';
-    const snapPreserve = d.burndown?.snapPreserve || 0;
+    // Config Extraction (Force RAW/Iron Fist for now)
+    const strategyMode = 'RAW'; 
+    if (d.burndown) d.burndown.strategyMode = 'RAW';
+    
+    // Ensure Priority is set
+    if (!d.burndown) d.burndown = {};
+    if (!d.burndown.priority) d.burndown.priority = [...defaultPriorityOrder];
     
     const results = simulateProjection(d, { 
         strategyMode: strategyMode,
         manualBudget: s.totalAnnualBudget,
         useSync: true,
-        priority: ['cash', 'roth-basis', 'taxable', 'crypto', 'metals', 'heloc', '401k', 'hsa', 'roth-earnings']
+        priority: d.burndown.priority || defaultPriorityOrder
     });
 
-    // Helper for Draw Cell
-    const renderDrawsCell = (draws) => {
-        const significant = Object.entries(draws).filter(([k,v]) => v > 50).sort((a,b) => b[1] - a[1]);
-        if (significant.length === 0) return '<span class="opacity-20">-</span>';
-        
-        return significant.map(([k, v]) => {
-            const labelMap = {
-                'cash': 'Cash',
-                'taxable': 'Brokerage',
-                'roth-basis': 'Roth Basis',
-                'heloc': 'HELOC',
-                '401k': 'Pre-Tax',
-                'roth-earnings': 'Roth Gain',
-                'crypto': 'Crypto',
-                'metals': 'Metals',
-                'hsa': 'HSA'
-            };
-            
-            const colorKeyMap = {
-                'cash': 'Cash',
-                'taxable': 'Taxable',
-                'roth-basis': 'Roth IRA',
-                'heloc': 'HELOC',
-                '401k': 'Pre-Tax (401k/IRA)',
-                'roth-earnings': 'Roth Gains',
-                'crypto': 'Crypto',
-                'metals': 'Metals',
-                'hsa': 'HSA'
-            };
-            
-            const label = labelMap[k] || k;
-            const displayColor = assetColors[colorKeyMap[k]] || '#94a3b8';
+    const priorityOrder = d.burndown.priority;
 
-            return `<div class="flex items-center justify-end gap-1.5 leading-none mb-0.5">
-                <span class="text-[8px] font-black uppercase truncate w-14 text-right" style="color:${displayColor}">${label}</span>
-                <span class="font-bold mono-numbers text-[9px]" style="color:${displayColor}">${math.toSmartCompactCurrency(v)}</span>
-            </div>`;
+    // Helper for Asset Cells in the Table
+    const renderAssetCells = (r) => {
+        return priorityOrder.map(k => {
+            const meta = assetMeta[k];
+            const draw = r.draws[k] || 0;
+            const bal = r.balances[k] || 0;
+            
+            // Only show draw if significant
+            if (draw > 50) {
+                return `<td class="p-2 text-center text-center font-black text-[10px]" style="color:${meta.color}">${math.toSmartCompactCurrency(draw)}</td>`;
+            } else {
+                return `<td class="p-2 text-center text-center text-[8px] font-bold text-slate-600">${math.toSmartCompactCurrency(bal)}</td>`;
+            }
         }).join('');
     };
 
@@ -613,21 +640,28 @@ export function renderFire(el) {
                 <table class="fire-table w-full whitespace-nowrap">
                     <thead class="bg-slate-900/90 text-xs font-bold text-slate-500 uppercase tracking-wider border-b border-white/10">
                         <tr>
-                            <th class="sticky left-0 bg-[#1e293b] z-20 px-3 py-2 text-left shadow-[2px_0_5px_rgba(0,0,0,0.3)]">Age</th>
-                            <th class="px-3 py-2 text-right">Budget</th>
+                            <th class="sticky left-0 bg-[#1e293b] z-20 px-3 py-2 text-center shadow-[2px_0_5px_rgba(0,0,0,0.3)]">Age</th>
+                            <th class="px-3 py-2 text-center">Budget</th>
                             <th class="px-3 py-2 text-center">Status</th>
-                            <th class="px-3 py-2 text-right text-teal-400">Income</th>
-                            <th class="px-3 py-2 text-right">Draws</th>
-                            <th class="px-3 py-2 text-right text-teal-400">Net Worth</th>
+                            <th class="px-3 py-2 text-center text-teal-400">Income</th>
+                            <th class="px-3 py-2 text-center text-emerald-500">Aid</th>
+                            <th class="px-3 py-2 text-center text-white cursor-pointer hover:bg-white/5 transition-colors bg-white/5 border border-white/10 rounded" onclick="window.openPriorityModal()">
+                                <i class="fas fa-sort mr-1 text-[8px]"></i> Total Draw
+                            </th>
+                            <th class="px-3 py-2 text-center text-teal-400">Net Worth</th>
+                            <th class="px-3 py-2 text-center text-red-400">Tax</th>
+                            ${priorityOrder.map(k => `<th class="px-3 py-2 text-center text-[9px]" style="color:${assetMeta[k].color}">${assetMeta[k].short}</th>`).join('')}
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-white/5 text-[10px]">
-                        ${results.map(r => `
+                        ${results.map(r => {
+                            const totalDraw = Object.values(r.draws).reduce((a, b) => a + b, 0);
+                            return `
                             <tr class="${r.status === 'INSOLVENT' ? 'bg-red-900/10' : ''}">
-                                <td class="sticky left-0 bg-[#1e293b] z-10 px-3 py-2 font-bold text-white shadow-[2px_0_5px_rgba(0,0,0,0.3)] border-r border-white/5">
+                                <td class="sticky left-0 bg-[#1e293b] z-10 px-3 py-2 font-bold text-white text-center shadow-[2px_0_5px_rgba(0,0,0,0.3)] border-r border-white/5">
                                     ${r.age}
                                 </td>
-                                <td class="px-3 py-2 text-right font-medium text-slate-300">
+                                <td class="px-3 py-2 text-center font-medium text-slate-300">
                                     ${math.toSmartCompactCurrency(r.budget)}
                                 </td>
                                 <td class="px-3 py-2 text-center">
@@ -635,19 +669,24 @@ export function renderFire(el) {
                                         ${r.status.substring(0,8)}
                                     </span>
                                 </td>
-                                <td class="px-3 py-2 text-right font-bold text-teal-400">
+                                <td class="px-3 py-2 text-center font-bold text-teal-400">
                                     ${math.toSmartCompactCurrency(r.floorGross)}
                                 </td>
-                                <td class="px-3 py-2 text-right">
-                                    <div class="flex flex-col items-end">
-                                        ${renderDrawsCell(r.draws)}
-                                    </div>
+                                <td class="px-3 py-2 text-center font-bold text-emerald-500">
+                                    ${math.toSmartCompactCurrency(r.snap)}
                                 </td>
-                                <td class="px-3 py-2 text-right font-black text-teal-400">
+                                <td class="px-3 py-2 text-center font-black text-white bg-white/5">
+                                    ${math.toSmartCompactCurrency(totalDraw)}
+                                </td>
+                                <td class="px-3 py-2 text-center font-black text-teal-400">
                                     ${math.toSmartCompactCurrency(r.netWorth)}
                                 </td>
+                                <td class="px-3 py-2 text-center font-bold text-red-400">
+                                    ${math.toSmartCompactCurrency(r.taxes)}
+                                </td>
+                                ${renderAssetCells(r)}
                             </tr>
-                        `).join('')}
+                        `}).join('')}
                     </tbody>
                 </table>
             </div>

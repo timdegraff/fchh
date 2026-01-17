@@ -104,6 +104,25 @@
         </div>
     </div>
 
+    <!-- Priority Reorder Modal -->
+    <div id="priority-modal" class="fixed inset-0 bg-black/95 z-[200] hidden backdrop-blur-md flex items-center justify-center px-4">
+        <div class="w-full max-w-sm bg-[#1e293b] rounded-2xl border border-white/10 p-5 shadow-2xl animate-slide-up">
+            <div class="flex justify-between items-center mb-4">
+                <div>
+                    <h3 class="text-lg font-black text-white uppercase tracking-tight">Draw Priority</h3>
+                    <p class="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Top items are sold first</p>
+                </div>
+                <button onclick="document.getElementById('priority-modal').classList.add('hidden')" class="w-8 h-8 bg-white/5 rounded-full flex items-center justify-center text-white"><i class="fas fa-times"></i></button>
+            </div>
+            <div id="priority-list-content" class="space-y-2 mb-4">
+                <!-- Injected via JS -->
+            </div>
+            <div class="bg-black/20 p-3 rounded-xl border border-white/5 text-[10px] text-slate-400 text-center leading-relaxed">
+                <i class="fas fa-info-circle mr-1"></i> Iron Fist logic strictly depletes the top bucket before touching the next.
+            </div>
+        </div>
+    </div>
+
     <!-- Warning Modal -->
     <div id="warning-modal" class="fixed inset-0 bg-black/80 z-[200] hidden backdrop-blur-sm flex items-center justify-center px-6">
         <div class="bg-[#1e293b] border border-white/10 p-6 rounded-2xl w-full max-w-sm relative shadow-2xl transform transition-all scale-100 animate-slide-up">

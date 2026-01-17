@@ -1,5 +1,5 @@
 
-import { renderApp } from './mobile-render.js';
+import { renderApp, renderPriorityList } from './mobile-render.js';
 import { math } from './utils.js';
 
 let mobileSaveTimeout = null;
@@ -73,6 +73,34 @@ window.moveItem = (path, index, direction) => {
     renderApp();
 };
 
+// Priority Modal Logic
+window.openPriorityModal = () => {
+    haptic();
+    const modal = document.getElementById('priority-modal');
+    if (modal) {
+        renderPriorityList(); // Ensure list is fresh
+        modal.classList.remove('hidden');
+    }
+};
+
+window.movePriorityItem = (index, direction) => {
+    haptic();
+    if (!window.currentData.burndown) window.currentData.burndown = { priority: [] };
+    const list = window.currentData.burndown.priority;
+    
+    const newIndex = index + direction;
+    if (newIndex < 0 || newIndex >= list.length) return;
+    
+    // Swap
+    const temp = list[index];
+    list[index] = list[newIndex];
+    list[newIndex] = temp;
+    
+    mobileAutoSave();
+    renderPriorityList(); // Update modal UI
+    renderApp(); // Update background table
+};
+
 window.toggleIncomeHeaderMode = () => {
     haptic();
     window.mobileState.incomeDisplayMode = window.mobileState.incomeDisplayMode === 'current' ? 'retire' : 'current';
@@ -103,6 +131,14 @@ window.toggleSection = (id) => {
 window.setBudgetMode = (mode) => {
     haptic();
     window.mobileState.budgetMode = mode;
+    
+    // Save to currentData so it persists via autoSave
+    if (window.currentData) {
+        if (!window.currentData.ui) window.currentData.ui = {};
+        window.currentData.ui.mobileBudgetMode = mode;
+        mobileAutoSave();
+    }
+    
     renderApp();
 };
 
