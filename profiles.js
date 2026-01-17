@@ -159,7 +159,7 @@ export const PROFILE_45_COUPLE = {
         ltcgRate: 15
     },
     benefits: { 
-        unifiedIncomeAnnual: 45000,
+        unifiedIncomeAnnual: 25000,
         shelterCosts: 3250,
         hasSUA: true,
         dependents: [

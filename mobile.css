@@ -16,6 +16,32 @@ body {
     user-select: none;
 }
 
+/* Landscape Lock */
+@media screen and (orientation: landscape) and (max-width: 1024px) {
+    body {
+        overflow: hidden;
+    }
+    body::after {
+        content: "Please rotate to portrait mode";
+        position: fixed;
+        top: 0; left: 0; right: 0; bottom: 0;
+        background: #0B0F19;
+        z-index: 9999;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-weight: 900;
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+        font-size: 14px;
+        text-align: center;
+    }
+    #app-container, #login-screen {
+        display: none !important;
+    }
+}
+
 /* Safe Area Utilities */
 .pt-safe { padding-top: var(--safe-top); }
 .pb-safe { padding-bottom: var(--safe-bottom); }

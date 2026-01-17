@@ -123,6 +123,7 @@ window.addItem = (path) => {
         contribOnBonus: false, matchOnBonus: false, nonTaxableUntil: '' 
     });
     else if (path.includes('dependents')) ref.push({ name: 'Child', birthYear: new Date().getFullYear() });
+    else if (path === 'stockOptions') ref.push({ name: 'New Option', shares: 0, strikePrice: 0, currentPrice: 0, isLtcg: false });
     else ref.push({ name: 'New Asset', value: 0 });
     
     renderApp();
@@ -294,25 +295,101 @@ window.toggleIncDedFreq = (index) => {
     renderApp(); // Update background
 };
 
+window.openAdvancedRealEstate = (index) => {
+    haptic();
+    const item = window.currentData.realEstate[index];
+    const modal = document.getElementById('advanced-modal');
+    const content = document.getElementById('advanced-modal-content');
+    
+    // principalPayment is used in calculation. Interest rate is stored but not used yet.
+    const principal = item.principalPayment || 0;
+    // Note: Interest Rate is not fully wired in logic yet, just storage.
+    const rate = item.rate || 0;
+
+    content.innerHTML = `
+        <h4 class="text-xs font-bold text-slate-500 uppercase tracking-widest mb-4">Settings for ${item.name || 'Property'}</h4>
+        
+        <div class="space-y-4">
+            <div class="p-4 bg-black/20 rounded-xl border border-white/5 space-y-3">
+                <div>
+                    <label class="text-[9px] font-bold text-slate-500 uppercase block mb-1">Monthly Principal Payment</label>
+                    <input data-path="realEstate.${index}.principalPayment" data-type="currency" inputmode="decimal" value="${math.toCurrency(principal)}" class="w-full bg-slate-900 border border-white/10 rounded-lg p-3 text-right text-white font-black text-lg">
+                    <p class="text-[9px] text-slate-500 mt-1 italic">Amount applied to mortgage balance monthly.</p>
+                </div>
+                
+                <div class="pt-2 border-t border-white/5">
+                    <label class="text-[9px] font-bold text-slate-500 uppercase block mb-1">Mortgage Interest Rate</label>
+                    <div class="flex items-center gap-2">
+                        <input data-path="realEstate.${index}.rate" type="number" step="0.1" value="${rate}" class="w-full bg-slate-900 border border-white/10 rounded-lg p-2 text-right text-blue-400 font-bold text-sm">
+                        <span class="text-white font-bold">%</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    modal.classList.remove('hidden');
+};
+
+window.openAdvancedHeloc = (index) => {
+    haptic();
+    const item = window.currentData.helocs[index];
+    const modal = document.getElementById('advanced-modal');
+    const content = document.getElementById('advanced-modal-content');
+    
+    const rate = item.rate || 7.0;
+
+    content.innerHTML = `
+        <h4 class="text-xs font-bold text-slate-500 uppercase tracking-widest mb-4">Settings for ${item.name || 'HELOC'}</h4>
+        
+        <div class="space-y-4">
+            <div class="p-4 bg-black/20 rounded-xl border border-white/5">
+                <label class="text-[9px] font-bold text-slate-500 uppercase block mb-1">Interest Rate</label>
+                <div class="flex items-center gap-2">
+                    <input data-path="helocs.${index}.rate" type="number" step="0.25" value="${rate}" class="w-full bg-slate-900 border border-white/10 rounded-lg p-3 text-right text-red-400 font-black text-lg">
+                    <span class="text-white font-bold">%</span>
+                </div>
+                <p class="text-[9px] text-slate-500 mt-2 leading-relaxed">
+                    Used to calculate interest drag on outstanding balance.
+                </p>
+            </div>
+        </div>
+    `;
+    
+    modal.classList.remove('hidden');
+};
+
 window.openAdvancedPE = (index) => {
     haptic();
     const item = window.currentData.stockOptions[index];
     const modal = document.getElementById('advanced-modal');
     const content = document.getElementById('advanced-modal-content');
     
+    // Ensure default is ORD (false)
+    const isLtcg = !!item.isLtcg;
+
     content.innerHTML = `
-        <h4 class="text-xs font-bold text-slate-500 uppercase tracking-widest mb-4">Settings for ${item.name}</h4>
+        <h4 class="text-xs font-bold text-slate-500 uppercase tracking-widest mb-4">Settings for ${item.name || 'Grant'}</h4>
         
         <div class="space-y-4">
-            <div class="flex items-center justify-between p-3 bg-black/20 rounded-xl">
-                <div>
-                    <span class="text-sm font-bold text-white">Tax Treatment</span>
-                    <p class="text-[9px] text-slate-500 uppercase">Long Term Capital Gains vs Ordinary</p>
+            <div class="flex flex-col gap-3 p-4 bg-black/20 rounded-xl border border-white/5">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <span class="text-sm font-bold text-white block">Tax Treatment</span>
+                        <span id="pe-tax-desc" class="text-[9px] font-bold ${isLtcg ? 'text-emerald-400' : 'text-blue-400'} uppercase tracking-tight">
+                            ${isLtcg ? 'LTCG (15% Rate)' : 'Ordinary Income Rate'}
+                        </span>
+                    </div>
+                    
+                    <label class="relative inline-flex items-center cursor-pointer">
+                        <input type="checkbox" onchange="window.updatePEBool(${index}, 'isLtcg', this.checked); window.haptic(); this.parentElement.previousElementSibling.lastElementChild.textContent = this.checked ? 'LTCG (15% Rate)' : 'Ordinary Income Rate'; this.parentElement.previousElementSibling.lastElementChild.className = this.checked ? 'text-[9px] font-bold text-emerald-400 uppercase tracking-tight' : 'text-[9px] font-bold text-blue-400 uppercase tracking-tight';" ${isLtcg ? 'checked' : ''} class="sr-only peer">
+                        <div class="w-14 h-7 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full after:content-['ORD'] peer-checked:after:content-['LTCG'] after:absolute after:top-[2px] after:left-[2px] after:bg-slate-600 after:text-[8px] after:font-black after:text-white after:flex after:items-center after:justify-center after:border-gray-500 after:border after:rounded-full after:h-6 after:w-6 after:transition-all peer-checked:bg-slate-800 peer-checked:after:bg-emerald-500 peer-checked:after:border-emerald-400"></div>
+                    </label>
                 </div>
-                <label class="relative inline-flex items-center cursor-pointer">
-                    <input type="checkbox" onchange="window.updatePEBool(${index}, 'isLtcg', this.checked)" ${item.isLtcg ? 'checked' : ''} class="sr-only peer">
-                    <div class="w-11 h-6 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-                </label>
+                <p class="text-[9px] text-slate-500 leading-relaxed border-t border-white/5 pt-2">
+                    <strong>ORD:</strong> Taxed at your marginal income tax bracket. Standard for RSUs and NQSOs.<br>
+                    <strong>LTCG:</strong> Taxed at favorable long-term capital gains rates (0%/15%/20%). Use for held ISOs.
+                </p>
             </div>
             
             <div class="p-3 bg-black/20 rounded-xl">

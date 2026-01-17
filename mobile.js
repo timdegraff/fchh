@@ -48,6 +48,12 @@ function attachListeners() {
             document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'));
             btn.classList.add('active');
             window.mobileState.activeTab = btn.dataset.tab;
+            
+            // Scroll to top
+            const content = document.getElementById('mobile-content');
+            if (content) content.scrollTop = 0;
+            window.scrollTo(0, 0);
+            
             renderApp();
         };
     });

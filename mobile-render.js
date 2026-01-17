@@ -403,7 +403,7 @@ export function renderBudget(el) {
             </div>
             <div class="swipe-content ${bgClass} ${opacityClass} border-b border-white/5 py-3 flex items-center justify-between">
                 ${item.isLocked ? '<div class="w-2"></div>' : `
-                    <div class="flex flex-col gap-1.5 pr-2">
+                    <div class="flex flex-col gap-1.5 pr-3 mr-2">
                         <button onclick="window.moveItem('budget.${type}', ${i}, -1)" class="text-slate-700 hover:text-white active:text-blue-400 transition-colors h-3 flex items-center"><i class="fas fa-chevron-up text-[10px]"></i></button>
                         <button onclick="window.moveItem('budget.${type}', ${i}, 1)" class="text-slate-700 hover:text-white active:text-blue-400 transition-colors h-3 flex items-center"><i class="fas fa-chevron-down text-[10px]"></i></button>
                     </div>
@@ -559,18 +559,33 @@ export function renderFire(el) {
     `;
 
     // Fire Table is raw HTML for now, could be componentized later if needed
+    // Render draws logic inside renderFire
+    const renderDrawsCell = (draws) => {
+        const significant = Object.entries(draws).filter(([k,v]) => v > 50).sort((a,b) => b[1] - a[1]);
+        if (significant.length === 0) return '<span class="opacity-20">-</span>';
+        
+        return significant.map(([k, v]) => {
+            const color = assetColors[k] || '#fff';
+            return `<div class="flex items-center justify-end gap-1.5 leading-none mb-0.5">
+                <span class="text-[8px] font-bold opacity-60 uppercase truncate w-12 text-right" style="color:${color}">${assetColors[k] ? k.replace(/\(.*\)/,'').substring(0,8) : 'Asset'}</span>
+                <span class="font-bold mono-numbers" style="color:${color}">${math.toSmartCompactCurrency(v)}</span>
+            </div>`;
+        }).join('');
+    };
+
     const fireTable = `
         <div class="mobile-card p-0 overflow-hidden mt-4">
             <table class="fire-table">
                 <thead class="bg-slate-900/50">
-                    <tr><th>Age</th><th>Year</th><th>Draw</th><th>Net Worth</th></tr>
+                    <tr><th>Age</th><th>Budget</th><th>Status</th><th>Draw</th><th>NW</th></tr>
                 </thead>
                 <tbody>
                     ${results.map(r => `
                         <tr class="${r.status === 'INSOLVENT' ? 'fire-row-insolvent' : (r.status === 'Platinum' ? 'fire-row-platinum' : '')}">
                             <td>${r.age}</td>
-                            <td>${r.year}</td>
-                            <td>${math.toSmartCompactCurrency(r.postTaxInc)}</td>
+                            <td>${math.toSmartCompactCurrency(r.budget)}</td>
+                            <td><span class="text-[7px] font-black uppercase opacity-60">${r.status.substring(0,8)}</span></td>
+                            <td class="py-1">${renderDrawsCell(r.draws)}</td>
                             <td>${math.toSmartCompactCurrency(r.netWorth)}</td>
                         </tr>
                     `).join('')}
