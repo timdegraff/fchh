@@ -52,6 +52,8 @@ export function renderAssets(el) {
 
     document.getElementById('assets-list-container').innerHTML = sections.map((sect) => {
         let net = 0;
+        let isDebt = false;
+        
         (sect.data || []).forEach(item => {
             if (sect.isOption) {
                 const shares = parseFloat(item.shares) || 0;
@@ -63,11 +65,18 @@ export function renderAssets(el) {
             } else if (sect.path === 'realEstate') {
                 net += math.fromCurrency(item.value) - math.fromCurrency(item.mortgage);
             } else if (sect.path === 'helocs' || sect.path === 'debts') {
-                net -= math.fromCurrency(item.balance);
+                net += math.fromCurrency(item.balance); // For display on card header, we show positive Debt amount
+                isDebt = true;
             }
         });
-        const netColor = net >= 0 ? 'text-emerald-400' : 'text-red-400';
-        const netDisplay = net !== 0 ? math.toSmartCompactCurrency(net) : '';
+        
+        // Debt sections show positive balance in Red on header
+        const netColor = isDebt ? 'text-red-400' : 'text-emerald-400';
+        const prefix = isDebt ? '-' : '';
+        const netDisplay = net !== 0 ? (isDebt ? math.toSmartCompactCurrency(-net) : math.toSmartCompactCurrency(net)) : '';
+        
+        // Add ID to the header display for live updates
+        const headerId = `section-header-total-${sect.path}`;
         const isOpen = !collapsedSections[sect.title];
 
         const content = `
@@ -155,7 +164,9 @@ export function renderAssets(el) {
             </button>
         `;
 
-        return renderCollapsible(sect.title, sect.title, content, isOpen, sect.icon, sect.color, netDisplay);
+        // Pass ID for Header span
+        const headerSpanHtml = `<span id="${headerId}">${netDisplay}</span>`;
+        return renderCollapsible(sect.title, sect.title, content, isOpen, sect.icon, netColor, headerSpanHtml);
     }).join('');
 }
 

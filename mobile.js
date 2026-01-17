@@ -132,7 +132,7 @@ function attachListeners() {
         const target = e.target;
         if (!target.dataset.path) return;
         
-        const path = target.dataset.path.split('.');
+        const pathParts = target.dataset.path.split('.');
         const dataType = target.dataset.type;
         
         let val = target.value;
@@ -161,35 +161,74 @@ function attachListeners() {
 
         // Deep set
         let ref = window.currentData;
-        for (let i = 0; i < path.length - 1; i++) {
-            if (!ref[path[i]]) ref[path[i]] = {}; 
-            ref = ref[path[i]];
+        for (let i = 0; i < pathParts.length - 1; i++) {
+            if (!ref[pathParts[i]]) ref[pathParts[i]] = {}; 
+            ref = ref[pathParts[i]];
         }
-        ref[path[path.length - 1]] = val;
+        ref[pathParts[pathParts.length - 1]] = val;
 
-        // Special Logic for Stock Options Equity Calculation
-        if (target.dataset.path.startsWith('stockOptions.')) {
-            const parts = target.dataset.path.split('.');
-            const index = parseInt(parts[1]);
+        // Auto-update Collapsible Section Headers (Totals)
+        const collectionName = pathParts[0];
+        if (collectionName && window.currentData[collectionName] && Array.isArray(window.currentData[collectionName])) {
+            const headerId = `section-header-total-${collectionName}`;
+            const headerEl = document.getElementById(headerId);
             
-            // Safety check for valid index and data existence
+            if (headerEl) {
+                let net = 0;
+                let isDebt = false;
+                window.currentData[collectionName].forEach(item => {
+                    if (collectionName === 'stockOptions') {
+                        // Using raw parseFloat on item.shares string if it comes from text input without currency formatting
+                        const s = parseFloat(item.shares) || 0;
+                        const st = math.fromCurrency(item.strikePrice);
+                        const f = math.fromCurrency(item.currentPrice);
+                        net += Math.max(0, (f - st) * s);
+                    } else if (collectionName === 'investments' || collectionName === 'otherAssets') {
+                        net += math.fromCurrency(item.value) - math.fromCurrency(item.loan || 0);
+                    } else if (collectionName === 'realEstate') {
+                        net += math.fromCurrency(item.value) - math.fromCurrency(item.mortgage);
+                    } else if (collectionName === 'helocs' || collectionName === 'debts') {
+                        // Display POSITIVE balance for debt headers
+                        net += math.fromCurrency(item.balance);
+                        isDebt = true;
+                    }
+                });
+                
+                const disp = isDebt ? math.toSmartCompactCurrency(-net) : math.toSmartCompactCurrency(net);
+                headerEl.textContent = disp;
+                
+                // Also update color if needed (though existing class should handle it)
+                if (headerEl.parentElement) {
+                    headerEl.parentElement.classList.remove('text-emerald-400', 'text-red-400');
+                    headerEl.parentElement.classList.add(isDebt ? 'text-red-400' : 'text-emerald-400');
+                }
+            }
+        }
+
+        // Special Logic for Stock Options Equity Calculation (Card Internal)
+        if (target.dataset.path.startsWith('stockOptions.')) {
+            const index = parseInt(pathParts[1]);
+            
             if (!isNaN(index) && window.currentData.stockOptions && window.currentData.stockOptions[index]) {
                 const opt = window.currentData.stockOptions[index];
-                const shares = parseFloat(opt.shares) || 0;
+                
+                // Fallback: If opt.shares is "200,000", parseFloat handles it if no comma, but if string has comma?
+                // Inputs are text for shares? mobile-render-assets uses type="number" so commas shouldn't exist.
+                // Just in case, strip non-numeric characters before parse.
+                const rawShares = String(opt.shares).replace(/[^0-9\.]/g, '');
+                const shares = parseFloat(rawShares) || 0;
+                
                 const strike = math.fromCurrency(opt.strikePrice);
                 const fmv = math.fromCurrency(opt.currentPrice);
                 
-                // Calculate equity, ensuring non-negative and valid number
                 let equity = Math.max(0, (fmv - strike) * shares);
                 if (isNaN(equity)) equity = 0;
                 
-                // Update DOM element directly
                 const displayEl = document.getElementById(`equity-display-${index}`);
                 if (displayEl) {
                     displayEl.textContent = math.toSmartCompactCurrency(equity);
                 }
                 
-                // Force chart refresh with new data
                 updateAssetChart(window.currentData);
             }
         }

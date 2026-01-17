@@ -1,4 +1,5 @@
 
+
 export const generateId = () => Date.now().toString(36) + Math.random().toString(36).substring(2);
 
 export const assetColors = {
@@ -439,7 +440,14 @@ export const engine = {
             let personal401kRaw = base * (parseFloat(x.contribution) / 100 || 0);
             if (x.contribOnBonus) personal401kRaw += (bonus * (parseFloat(x.contribution) / 100 || 0));
             const cappedIndividual401k = Math.min(personal401kRaw, irsLimit);
-            total401kContribution += cappedIndividual401k;
+            
+            // Calculate Match
+            let matchRaw = base * (parseFloat(x.match) / 100 || 0);
+            if (x.matchOnBonus) matchRaw += (bonus * (parseFloat(x.match) / 100 || 0));
+            
+            // Add both personal and match to total
+            total401kContribution += (cappedIndividual401k + matchRaw);
+
             const isExpMon = x.incomeExpensesMonthly === true || x.incomeExpensesMonthly === 'true';
             const sourceExpenses = (math.fromCurrency(x.incomeExpenses) * (isExpMon ? 12 : 1));
             // User request: Deduction removes income from them. So we return the net of the source as "Gross Income".

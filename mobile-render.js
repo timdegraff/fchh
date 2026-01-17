@@ -250,7 +250,7 @@ export function renderIncome(el) {
                         <div>
                             <div class="flex items-center justify-center gap-1 mb-1">
                                 <span class="text-[8px] font-bold text-slate-400 uppercase">401k %</span>
-                                <i class="fas fa-exclamation-triangle text-yellow-500 text-[10px] hidden cursor-pointer" id="warn-401k-${i}" onclick="alert('Exceeds 2026 IRS Limit of ${math.toCurrency(kLimit)} (+$7,500 catch-up if 50+)')"></i>
+                                <i class="fas fa-exclamation-triangle text-yellow-500 text-[10px] hidden cursor-pointer" id="warn-401k-${i}" onclick="window.showWarning('Contribution Limit Exceeded', 'The 2026 IRS limit for 401(k) contributions is ${math.toCurrency(kLimit)} (including catch-up for age 50+). Your input exceeds this.')"></i>
                             </div>
                             <div class="flex items-center bg-black/20 rounded-lg">
                                 <button class="stepper-btn" onclick="window.stepValue('income.${i}.contribution', -1)">-</button>
@@ -308,7 +308,7 @@ export function renderBudget(el) {
         if (type === 'savings' && item.type === 'HSA') {
             const hsaLimit = 8550;
             if (item.annual > hsaLimit) {
-                warningHtml = `<i class="fas fa-exclamation-triangle text-yellow-500 text-[10px] absolute top-1 right-1" onclick="alert('Exceeds 2026 HSA Family Limit of $8,550')"></i>`;
+                warningHtml = `<i class="fas fa-exclamation-triangle text-yellow-500 text-[10px] absolute top-1 right-1 cursor-pointer" onclick="window.showWarning('HSA Limit Exceeded', 'The 2026 IRS Family Limit for HSA contributions is $8,550. Your input exceeds this.')"></i>`;
             }
         }
 

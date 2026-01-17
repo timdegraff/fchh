@@ -28,9 +28,25 @@ export function mobileAutoSave() {
     }, 1000);
 }
 
+export function showWarning(title, message) {
+    haptic();
+    const modal = document.getElementById('warning-modal');
+    const t = document.getElementById('warning-title');
+    const m = document.getElementById('warning-msg');
+    
+    if (modal && t && m) {
+        t.textContent = title;
+        m.textContent = message;
+        modal.classList.remove('hidden');
+    } else {
+        alert(`${title}: ${message}`);
+    }
+}
+
 // Attach these to window so Sortable/Listeners can call them
 window.haptic = haptic;
 window.mobileAutoSave = mobileAutoSave;
+window.showWarning = showWarning;
 
 // --- GLOBAL UI ACTIONS ---
 
