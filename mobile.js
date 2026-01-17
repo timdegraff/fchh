@@ -111,7 +111,7 @@ function attachListeners() {
         } else if (target.dataset.type === 'percent') {
             const raw = parseFloat(target.value.replace('%', ''));
             target.value = isNaN(raw) ? '' : raw;
-            target.type = 'number';
+            // Also avoid type switching for percent to be safe
         }
     });
 

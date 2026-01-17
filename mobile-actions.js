@@ -117,14 +117,24 @@ window.addItem = (path) => {
         ref = ref[parts[i]];
     }
     
-    if (path.includes('budget')) ref.push({ name: 'New Item', annual: 0, remainsInRetirement: true });
-    else if (path === 'income') ref.push({ 
-        name: 'New Income', amount: 0, increase: 3, contribution: 0, match: 0, bonusPct: 0, 
-        contribOnBonus: false, matchOnBonus: false, nonTaxableUntil: '' 
-    });
-    else if (path.includes('dependents')) ref.push({ name: 'Child', birthYear: new Date().getFullYear() });
-    else if (path === 'stockOptions') ref.push({ name: 'New Option', shares: 0, strikePrice: 0, currentPrice: 0, isLtcg: false });
-    else ref.push({ name: 'New Asset', value: 0 });
+    if (path === 'budget.savings') {
+        // Savings default: Taxable, does NOT continue in retirement (Accumulation only)
+        ref.push({ type: 'Taxable', annual: 0, remainsInRetirement: false });
+    } else if (path.includes('budget')) {
+        // Expenses default: Continues in retirement
+        ref.push({ name: 'New Item', annual: 0, remainsInRetirement: true });
+    } else if (path === 'income') {
+        ref.push({ 
+            name: 'New Income', amount: 0, increase: 3, contribution: 0, match: 0, bonusPct: 0, 
+            contribOnBonus: false, matchOnBonus: false, nonTaxableUntil: '' 
+        });
+    } else if (path.includes('dependents')) {
+        ref.push({ name: 'Child', birthYear: new Date().getFullYear() });
+    } else if (path === 'stockOptions') {
+        ref.push({ name: 'New Option', shares: 0, strikePrice: 0, currentPrice: 0, isLtcg: false });
+    } else {
+        ref.push({ name: 'New Asset', value: 0 });
+    }
     
     renderApp();
     mobileAutoSave();
