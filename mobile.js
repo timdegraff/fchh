@@ -281,6 +281,7 @@ function updateHeader() {
     const left = document.getElementById('header-left');
     const right = document.getElementById('header-right');
     const headerEl = document.querySelector('header');
+    const toolbar = document.getElementById('header-toolbar');
     
     if (!left || !headerEl) return;
 
@@ -299,6 +300,26 @@ function updateHeader() {
     `;
 
     updateHeaderContext();
+
+    // Toolbar Logic (Sticky Controls)
+    if (activeTab === 'budget') {
+        if (toolbar) {
+            toolbar.classList.remove('hidden');
+            toolbar.innerHTML = `
+                <div class="flex justify-center">
+                    <div class="flex bg-slate-900/90 p-0.5 rounded-lg border border-white/10">
+                        <button onclick="window.setBudgetMode('monthly')" class="px-3 py-1 rounded-md text-[10px] font-bold uppercase transition-all ${budgetMode === 'monthly' ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-500 hover:text-white'}">Monthly</button>
+                        <button onclick="window.setBudgetMode('annual')" class="px-3 py-1 rounded-md text-[10px] font-bold uppercase transition-all ${budgetMode === 'annual' ? 'bg-emerald-600 text-white shadow-lg' : 'text-slate-500 hover:text-white'}">Annual</button>
+                    </div>
+                </div>
+            `;
+        }
+    } else {
+        if (toolbar) {
+            toolbar.classList.add('hidden');
+            toolbar.innerHTML = '';
+        }
+    }
 
     // Dynamic Header Height Adjustment
     requestAnimationFrame(() => {
@@ -779,13 +800,6 @@ function renderBudget(el) {
     const savingsList = (d.budget?.savings || []).filter(s => !s.isLocked);
     
     el.innerHTML = `
-        <div class="flex justify-center mb-4">
-            <div class="flex bg-slate-900/50 p-1 rounded-lg border border-white/10">
-                <button onclick="window.setBudgetMode('monthly')" class="px-4 py-1.5 rounded-md text-[10px] font-bold uppercase transition-all ${budgetMode === 'monthly' ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-500 hover:text-white'}">Monthly</button>
-                <button onclick="window.setBudgetMode('annual')" class="px-4 py-1.5 rounded-md text-[10px] font-bold uppercase transition-all ${budgetMode === 'annual' ? 'bg-emerald-600 text-white shadow-lg' : 'text-slate-500 hover:text-white'}">Annual</button>
-            </div>
-        </div>
-
         <div class="collapsible-section">
             <div class="collapsible-header ${collapsedSections['Savings'] ? '' : 'active'}" onclick="window.toggleSection('Savings')">
                 <span class="font-bold text-white text-sm">Savings</span>

@@ -117,9 +117,9 @@ input:disabled {
 
 /* Add Item Button (Section Footer) */
 .section-add-btn {
-    width: 100%;
-    padding: 12px;
-    margin-top: 8px;
+    width: 75%; /* Reduced width */
+    padding: 10px; /* Reduced padding */
+    margin: 6px auto; /* Centered with less vertical gap */
     background: rgba(255,255,255,0.03);
     border: 1px dashed rgba(255,255,255,0.1);
     border-radius: 12px;
