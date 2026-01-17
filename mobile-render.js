@@ -472,3 +472,151 @@ export function renderFire(el) {
         }
     }, 100);
 }
+
+// --- MISSING RENDER FUNCTIONS ---
+
+function renderIncome(el) {
+    const d = window.currentData;
+    const income = d.income || [];
+    
+    const html = income.map((inc, i) => {
+        return `
+        <div class="swipe-container">
+            <div class="swipe-actions">
+                <button class="swipe-action-btn bg-slate-700" onclick="window.openAdvancedIncome(${i})">Settings</button>
+                <button class="swipe-action-btn bg-red-600" onclick="window.removeItem('income', ${i})">Delete</button>
+            </div>
+            <div class="swipe-content mobile-card p-3 border border-white/5">
+                <div class="flex justify-between items-center mb-2">
+                    <input data-path="income.${i}.name" value="${inc.name}" class="bg-transparent border-none p-0 text-xs font-black text-white uppercase tracking-widest w-full focus:ring-0 placeholder:text-slate-600">
+                    <button class="text-[9px] font-bold ${inc.isMonthly ? 'text-blue-400' : 'text-slate-500'} uppercase bg-black/20 px-2 py-1 rounded" onclick="const d = window.currentData.income[${i}]; d.isMonthly = !d.isMonthly; d.amount = d.isMonthly ? d.amount / 12 : d.amount * 12; window.mobileAutoSave(); window.renderApp();">
+                        ${inc.isMonthly ? 'Monthly' : 'Annual'}
+                    </button>
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="text-[8px] font-bold text-slate-500 uppercase block mb-0.5">Amount</label>
+                        <input data-path="income.${i}.amount" data-type="currency" inputmode="decimal" value="${math.toCurrency(inc.amount)}" class="bg-transparent border-none p-0 text-lg font-black text-teal-400 w-full focus:ring-0">
+                    </div>
+                    <div>
+                        <label class="text-[8px] font-bold text-slate-500 uppercase block mb-0.5">Growth %</label>
+                        <div class="flex items-center gap-2">
+                            <button onclick="window.stepValue('income.${i}.increase', -0.5)" class="text-slate-500 hover:text-white"><i class="fas fa-minus text-[10px]"></i></button>
+                            <input data-path="income.${i}.increase" type="number" step="0.1" value="${inc.increase}" class="bg-transparent border-none p-0 text-sm font-bold text-white w-full text-center focus:ring-0">
+                            <button onclick="window.stepValue('income.${i}.increase', 0.5)" class="text-slate-500 hover:text-white"><i class="fas fa-plus text-[10px]"></i></button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>`;
+    }).join('');
+
+    el.innerHTML = `
+        <div class="space-y-3">
+            ${html}
+            <button class="section-add-btn" onclick="window.addItem('income')">
+                <i class="fas fa-plus"></i> Add Income Stream
+            </button>
+        </div>
+    `;
+}
+
+function renderBudget(el) {
+    const d = window.currentData;
+    const { collapsedSections, budgetMode } = getState();
+    const isMonthly = budgetMode === 'monthly';
+    const factor = isMonthly ? 1/12 : 1;
+    
+    const renderList = (items, type) => {
+        if (!items || !items.length) return '<div class="text-[10px] text-slate-600 text-center italic py-2">No items added</div>';
+        return items.map((item, i) => {
+            const val = item.annual * factor;
+            const path = `budget.${type}.${i}.annual`;
+            
+            return `
+            <div class="swipe-container">
+                <div class="swipe-actions">
+                    <button class="swipe-action-btn bg-red-600" onclick="window.removeItem('budget.${type}', ${i})">Delete</button>
+                </div>
+                <div class="swipe-content flex items-center justify-between p-2 border-b border-white/5 bg-transparent">
+                    <div class="flex-grow pr-3">
+                        <input data-path="budget.${type}.${i}.${type === 'savings' ? 'type' : 'name'}" value="${type === 'savings' ? item.type : item.name}" class="bg-transparent border-none p-0 text-xs font-bold text-white w-full placeholder:text-slate-600 focus:ring-0" ${type === 'savings' ? 'disabled' : ''}>
+                        <div class="flex gap-2 mt-1">
+                            ${type === 'expenses' ? `
+                                <button onclick="window.toggleBudgetBool('${type}', ${i}, 'remainsInRetirement')" class="text-[8px] font-bold uppercase ${item.remainsInRetirement ? 'text-blue-400' : 'text-slate-600'}">
+                                    ${item.remainsInRetirement ? 'Retires' : 'Ends'}
+                                </button>
+                                <button onclick="window.toggleBudgetBool('${type}', ${i}, 'isFixed')" class="text-[8px] font-bold uppercase ${item.isFixed ? 'text-amber-400' : 'text-slate-600'}">
+                                    ${item.isFixed ? 'Fixed' : 'Inflates'}
+                                </button>
+                            ` : `<span class="text-[8px] font-bold uppercase text-slate-600">${item.remainsInRetirement ? 'Active in Ret' : 'Accum Only'}</span>`}
+                        </div>
+                    </div>
+                    <div class="w-24">
+                        <input data-path="${path}" data-type="currency" inputmode="decimal" value="${math.toCurrency(val)}" class="bg-transparent border-none p-0 text-sm font-black text-right ${type === 'savings' ? 'text-emerald-400' : 'text-pink-400'} w-full focus:ring-0">
+                    </div>
+                </div>
+            </div>`;
+        }).join('');
+    };
+
+    const savingsHtml = `
+        ${renderList(d.budget.savings, 'savings')}
+        <button class="section-add-btn" onclick="window.addItem('budget.savings')"><i class="fas fa-plus"></i> Add Savings Goal</button>
+    `;
+    
+    const expensesHtml = `
+        ${renderList(d.budget.expenses, 'expenses')}
+        <button class="section-add-btn" onclick="window.addItem('budget.expenses')"><i class="fas fa-plus"></i> Add Expense</button>
+    `;
+
+    el.innerHTML = `
+        <div class="space-y-4">
+            ${renderCollapsible('savings', 'Savings Targets', savingsHtml, !collapsedSections['savings'], 'fa-piggy-bank', 'text-emerald-400')}
+            ${renderCollapsible('expenses', 'Living Expenses', expensesHtml, !collapsedSections['expenses'], 'fa-credit-card', 'text-pink-400')}
+        </div>
+    `;
+}
+
+function renderConfig(el) {
+    const a = window.currentData.assumptions;
+    
+    el.innerHTML = `
+        <div class="mobile-card p-4 space-y-6">
+            <h3 class="text-xs font-black text-white uppercase tracking-widest mb-4 border-b border-white/5 pb-2">Timeline & Profile</h3>
+            ${renderStepperSlider('Current Age', 'assumptions.currentAge', 18, 70, 1, a.currentAge, '')}
+            ${renderStepperSlider('Retirement Age', 'assumptions.retirementAge', 30, 80, 1, a.retirementAge, '', 'text-blue-400')}
+            
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label class="text-[9px] font-bold text-slate-500 uppercase block mb-1">Filing Status</label>
+                    <select data-path="assumptions.filingStatus" class="bg-slate-900 border border-white/10 rounded-lg text-xs font-bold text-white w-full p-2">
+                        <option value="Single" ${a.filingStatus === 'Single' ? 'selected' : ''}>Single</option>
+                        <option value="Married Filing Jointly" ${a.filingStatus === 'Married Filing Jointly' ? 'selected' : ''}>Married Jointly</option>
+                        <option value="Head of Household" ${a.filingStatus === 'Head of Household' ? 'selected' : ''}>Head of HH</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="text-[9px] font-bold text-slate-500 uppercase block mb-1">State Tax</label>
+                    <select data-path="assumptions.state" class="bg-slate-900 border border-white/10 rounded-lg text-xs font-bold text-white w-full p-2">
+                        ${Object.keys(stateTaxRates).sort().map(s => `<option value="${s}" ${a.state === s ? 'selected' : ''}>${s}</option>`).join('')}
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <div class="mobile-card p-4 space-y-6">
+            <h3 class="text-xs font-black text-white uppercase tracking-widest mb-4 border-b border-white/5 pb-2">Market Assumptions</h3>
+            ${renderStepperSlider('Stock Growth', 'assumptions.stockGrowth', 0, 15, 0.5, a.stockGrowth, '%', 'text-blue-400')}
+            ${renderStepperSlider('Real Estate', 'assumptions.realEstateGrowth', 0, 10, 0.5, a.realEstateGrowth, '%', 'text-indigo-400')}
+            ${renderStepperSlider('Inflation', 'assumptions.inflation', 0, 10, 0.1, a.inflation, '%', 'text-red-400')}
+        </div>
+        
+        <div class="mobile-card p-4 space-y-6">
+            <h3 class="text-xs font-black text-white uppercase tracking-widest mb-4 border-b border-white/5 pb-2">Spending Phases</h3>
+            ${renderStepperSlider('Go-Go (Age 30-60)', 'assumptions.phaseGo1', 50, 150, 5, Math.round(a.phaseGo1 * 100), '%', 'text-purple-400')}
+            ${renderStepperSlider('Slow-Go (Age 60-80)', 'assumptions.phaseGo2', 50, 150, 5, Math.round(a.phaseGo2 * 100), '%', 'text-purple-400')}
+            ${renderStepperSlider('No-Go (Age 80+)', 'assumptions.phaseGo3', 50, 150, 5, Math.round(a.phaseGo3 * 100), '%', 'text-purple-400')}
+        </div>
+    `;
+}
