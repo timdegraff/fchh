@@ -248,7 +248,7 @@ export function initAssetChart(data) {
                 legend: { display: false },
                 tooltip: {
                     callbacks: {
-                        label: (ctx) => ` ${ctx.label}: ${math.toSmartCompactCurrency(ctx.raw)}`
+                        label: (ctx) => ` ${math.toSmartCompactCurrency(ctx.raw)}`
                     },
                     backgroundColor: '#1e293b',
                     bodyFont: { family: 'Inter', weight: 'bold' }
