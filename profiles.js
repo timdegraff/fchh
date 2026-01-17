@@ -83,6 +83,7 @@ export const BLANK_PROFILE = {
     benefits: { 
         unifiedIncomeAnnual: 43000,
         shelterCosts: 2000,
+        hasSUA: true,
         dependents: [
             { name: "EVAN", birthYear: 2014 },
             { name: "COLIN", birthYear: 2016 },
@@ -151,6 +152,7 @@ export const PROFILE_45_COUPLE = {
     benefits: { 
         unifiedIncomeAnnual: 45000,
         shelterCosts: 3250,
+        hasSUA: true,
         dependents: [
             { name: "Kid 1", birthYear: 2019 },
             { name: "Kid 2", birthYear: 2017 },
