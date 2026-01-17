@@ -205,16 +205,16 @@ export function renderAid(el) {
                 <span id="aid-snap-val" class="text-4xl font-black text-emerald-400 mono-numbers tracking-tight">$0</span>
             </div>
 
-            <div class="space-y-4">
+            <div class="space-y-2"> <!-- Reduced space from space-y-4 -->
                 <!-- Household List -->
                 <div>
-                    <div class="flex justify-between items-center mb-2">
+                    <div class="flex justify-between items-center mb-1">
                         <span class="text-[10px] font-bold text-slate-500 uppercase">Children</span>
                         <button onclick="window.addItem('benefits.dependents')" class="text-[9px] font-bold text-blue-400 uppercase bg-blue-500/10 px-2 py-1 rounded hover:bg-blue-500/20 transition-colors">+ Add Child</button>
                     </div>
-                    <div class="space-y-2">
+                    <div class="space-y-1">
                         ${(ben.dependents || []).map((dep, i) => `
-                            <div class="flex items-center gap-2 bg-black/20 p-2 rounded-lg border border-white/5">
+                            <div class="flex items-center gap-2 bg-black/20 p-1.5 rounded-lg border border-white/5">
                                 <div class="w-6 h-6 rounded-full bg-slate-800 flex items-center justify-center text-slate-500 text-[10px]"><i class="fas fa-child"></i></div>
                                 <input data-path="benefits.dependents.${i}.name" value="${dep.name}" class="bg-transparent border-none text-xs font-bold text-white flex-grow focus:ring-0 placeholder:text-slate-600" placeholder="Name">
                                 <div class="flex items-center gap-1">
@@ -224,26 +224,26 @@ export function renderAid(el) {
                                 <button onclick="window.removeItem('benefits.dependents', ${i})" class="text-slate-600 px-2 hover:text-red-400"><i class="fas fa-times"></i></button>
                             </div>
                         `).join('')}
-                        ${(ben.dependents || []).length === 0 ? '<div class="text-[10px] text-slate-600 text-center italic py-2">No dependents added</div>' : ''}
+                        ${(ben.dependents || []).length === 0 ? '<div class="text-[10px] text-slate-600 text-center italic py-1">No dependents added</div>' : ''}
                     </div>
                 </div>
 
                 <!-- Expense Grid -->
-                <div class="grid grid-cols-2 gap-3 pt-2">
+                <div class="grid grid-cols-2 gap-2 pt-1">
                      <div>
-                         <label class="block text-[8px] font-bold text-slate-500 uppercase mb-1">Shelter Costs</label>
+                         <label class="block text-[8px] font-bold text-slate-500 uppercase mb-0.5">Shelter Costs</label>
                          <input data-path="benefits.shelterCosts" data-type="currency" inputmode="decimal" value="${math.toCurrency(ben.shelterCosts)}" class="w-full bg-black/20 border border-white/5 rounded p-2 text-xs text-white font-bold text-right">
                      </div>
                      <div>
-                         <label class="block text-[8px] font-bold text-slate-500 uppercase mb-1">Medical Exp</label>
+                         <label class="block text-[8px] font-bold text-slate-500 uppercase mb-0.5">Medical Exp</label>
                          <input data-path="benefits.medicalExps" data-type="currency" inputmode="decimal" value="${math.toCurrency(ben.medicalExps)}" class="w-full bg-black/20 border border-white/5 rounded p-2 text-xs text-blue-400 font-bold text-right">
                      </div>
                      <div>
-                         <label class="block text-[8px] font-bold text-slate-500 uppercase mb-1">Child Support Pd</label>
+                         <label class="block text-[8px] font-bold text-slate-500 uppercase mb-0.5">Child Support Pd</label>
                          <input data-path="benefits.childSupportPaid" data-type="currency" inputmode="decimal" value="${math.toCurrency(ben.childSupportPaid)}" class="w-full bg-black/20 border border-white/5 rounded p-2 text-xs text-pink-400 font-bold text-right">
                      </div>
                      <div>
-                         <label class="block text-[8px] font-bold text-slate-500 uppercase mb-1">Dependent Care</label>
+                         <label class="block text-[8px] font-bold text-slate-500 uppercase mb-0.5">Dependent Care</label>
                          <input data-path="benefits.depCare" data-type="currency" inputmode="decimal" value="${math.toCurrency(ben.depCare)}" class="w-full bg-black/20 border border-white/5 rounded p-2 text-xs text-white font-bold text-right">
                      </div>
                 </div>

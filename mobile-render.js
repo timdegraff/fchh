@@ -47,8 +47,9 @@ export function renderApp() {
 
 export function updateHeader() {
     const left = document.getElementById('header-left');
+    const right = document.getElementById('header-right');
+    const center = document.getElementById('header-center');
     const headerEl = document.querySelector('header');
-    const toolbar = document.getElementById('header-toolbar');
     
     if (!left || !headerEl) return;
 
@@ -63,31 +64,39 @@ export function updateHeader() {
         'fire': 'Burn Down'
     };
 
+    const colors = {
+        'assets': 'text-orange-400',
+        'income': 'text-teal-400',
+        'budget': 'text-pink-500',
+        'config': 'text-emerald-400',
+        'aid': 'text-amber-400',
+        'fire': 'text-purple-400'
+    };
+
     left.innerHTML = `
-        <h1 class="font-black text-white text-lg leading-none tracking-tight">FireCalc</h1>
-        <p class="text-[10px] font-bold text-slate-500 uppercase tracking-widest mt-0.5">${titles[activeTab]}</p>
+        <div class="flex items-center gap-2.5">
+            <i class="fas fa-fire text-purple-500 text-lg"></i>
+            <div>
+                <h1 class="font-black text-white text-lg leading-none tracking-tight">FireCalc</h1>
+                <p class="text-[10px] font-bold ${colors[activeTab]} uppercase tracking-widest mt-0.5">${titles[activeTab]}</p>
+            </div>
+        </div>
     `;
 
     updateHeaderContext();
 
-    // Toolbar Logic (Sticky Controls)
+    // Toolbar Logic (Sticky Controls moved to Center Header)
     if (activeTab === 'budget') {
-        if (toolbar) {
-            toolbar.classList.remove('hidden');
-            toolbar.innerHTML = `
-                <div class="flex justify-center">
-                    <div class="flex bg-slate-900/90 p-0.5 rounded-lg border border-white/10">
-                        <button onclick="window.setBudgetMode('monthly')" class="px-3 py-1 rounded-md text-[10px] font-bold uppercase transition-all ${budgetMode === 'monthly' ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-500 hover:text-white'}">Monthly</button>
-                        <button onclick="window.setBudgetMode('annual')" class="px-3 py-1 rounded-md text-[10px] font-bold uppercase transition-all ${budgetMode === 'annual' ? 'bg-emerald-600 text-white shadow-lg' : 'text-slate-500 hover:text-white'}">Annual</button>
-                    </div>
+        if (center) {
+            center.innerHTML = `
+                <div class="flex bg-slate-900/90 p-0.5 rounded-lg border border-white/10 shadow-xl">
+                    <button onclick="window.setBudgetMode('monthly')" class="px-3 py-1.5 rounded-md text-[9px] font-bold uppercase transition-all ${budgetMode === 'monthly' ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-500 hover:text-white'}">Monthly</button>
+                    <button onclick="window.setBudgetMode('annual')" class="px-3 py-1.5 rounded-md text-[9px] font-bold uppercase transition-all ${budgetMode === 'annual' ? 'bg-emerald-600 text-white shadow-lg' : 'text-slate-500 hover:text-white'}">Annual</button>
                 </div>
             `;
         }
     } else {
-        if (toolbar) {
-            toolbar.classList.add('hidden');
-            toolbar.innerHTML = '';
-        }
+        if (center) center.innerHTML = '';
     }
 
     requestAnimationFrame(() => {
@@ -118,7 +127,7 @@ export function updateHeaderContext() {
             labelToShow = 'Gross Inc';
             color = 'text-teal-400';
         } else {
-            // Calculate Retirement Income logic retained for brevity, same as before
+            // Calculate Retirement Income logic
             const d = window.currentData;
             const a = d.assumptions || {};
             const curAge = parseFloat(a.currentAge) || 40;
@@ -218,7 +227,7 @@ export function renderIncome(el) {
                         <div>
                             <div class="flex items-center justify-center gap-1 mb-1">
                                 <span class="text-[8px] font-bold text-slate-400 uppercase">401k %</span>
-                                <i class="fas fa-exclamation-triangle text-yellow-500 text-[10px] hidden" id="warn-401k-${i}" onclick="alert('Exceeds 2026 IRS Limit of ${math.toCurrency(kLimit)}')"></i>
+                                <i class="fas fa-exclamation-triangle text-yellow-500 text-[10px] hidden cursor-pointer" id="warn-401k-${i}" onclick="alert('Exceeds 2026 IRS Limit of ${math.toCurrency(kLimit)} (+$7,500 catch-up if 50+)')"></i>
                             </div>
                             <div class="flex items-center bg-black/20 rounded-lg">
                                 <button class="stepper-btn" onclick="window.stepValue('income.${i}.contribution', -1)">-</button>
@@ -317,7 +326,7 @@ export function renderBudget(el) {
                 <div class="drag-handle text-slate-600 px-2" ${item.isLocked ? 'style="visibility:hidden"' : ''}><i class="fas fa-grip-vertical"></i></div>
                 <div class="flex-grow">
                      ${type === 'savings' ? `
-                        <div class="relative">
+                        <div class="relative w-[80%]">
                             <select data-path="budget.savings.${i}.type" class="bg-transparent border-none p-0 text-xs font-bold uppercase w-full cursor-pointer focus:ring-0 ${getTypeColor(item.type)}" ${disabledAttr}>
                                 <option value="Taxable" ${item.type === 'Taxable' ? 'selected' : ''}>Taxable</option>
                                 <option value="Pre-Tax (401k/IRA)" ${item.type === 'Pre-Tax (401k/IRA)' ? 'selected' : ''}>Pre-Tax</option>
@@ -360,8 +369,8 @@ export function renderBudget(el) {
     `;
 
     el.innerHTML = `
-        ${renderCollapsible('Savings', 'SAVINGS', savingsContent, !collapsedSections['Savings'], null, 'text-white', '', 'bg-black/20')}
-        ${renderCollapsible('Expenses', 'EXPENSES', expensesContent, !collapsedSections['Expenses'], null, 'text-white', '', 'bg-black/20')}
+        ${renderCollapsible('Savings', 'SAVINGS', savingsContent, !collapsedSections['Savings'], 'fa-piggy-bank', 'text-emerald-400', '', 'bg-black/20')}
+        ${renderCollapsible('Expenses', 'EXPENSES', expensesContent, !collapsedSections['Expenses'], 'fa-chart-pie', 'text-pink-500', '', 'bg-black/20')}
     `;
 }
 
@@ -389,31 +398,31 @@ export function renderConfig(el) {
                 </select>
             </label>
         </div>
-        ${renderStepperSlider('Current Age', 'currentAge', 18, 80, 1, a.currentAge, '', 'text-white')}
-        ${renderStepperSlider('Retirement Age', 'retirementAge', 18, 80, 1, a.retirementAge, '', 'text-blue-400')}
-        ${renderStepperSlider('SS Start Age', 'ssStartAge', 62, 70, 1, a.ssStartAge, '', 'text-teal-400')}
-        ${renderStepperSlider('SS Monthly', 'ssMonthly', 0, 5000, 100, a.ssMonthly, '', 'text-teal-400')}
+        ${renderStepperSlider('Current Age', 'assumptions.currentAge', 18, 80, 1, a.currentAge, '', 'text-white')}
+        ${renderStepperSlider('Retirement Age', 'assumptions.retirementAge', 18, 80, 1, a.retirementAge, '', 'text-blue-400')}
+        ${renderStepperSlider('SS Start Age', 'assumptions.ssStartAge', 62, 70, 1, a.ssStartAge, '', 'text-teal-400')}
+        ${renderStepperSlider('SS Monthly', 'assumptions.ssMonthly', 0, 5000, 100, a.ssMonthly, '', 'text-teal-400')}
     `;
 
     const marketContent = `
-        ${renderStepperSlider('Stocks (APY)', 'stockGrowth', 0, 15, 0.5, a.stockGrowth, '%', 'text-blue-400')}
-        ${renderStepperSlider('Crypto (APY)', 'cryptoGrowth', 0, 15, 0.5, a.cryptoGrowth, '%', 'text-slate-400')}
-        ${renderStepperSlider('Metals (APY)', 'metalsGrowth', 0, 15, 0.5, a.metalsGrowth || 6, '%', 'text-amber-400')}
-        ${renderStepperSlider('Real Estate (APY)', 'realEstateGrowth', 0, 10, 0.5, a.realEstateGrowth, '%', 'text-indigo-400')}
-        ${renderStepperSlider('Inflation', 'inflation', 0, 10, 0.1, a.inflation, '%', 'text-red-400')}
+        ${renderStepperSlider('Stocks (APY)', 'assumptions.stockGrowth', 0, 15, 0.5, a.stockGrowth, '%', 'text-blue-400')}
+        ${renderStepperSlider('Crypto (APY)', 'assumptions.cryptoGrowth', 0, 15, 0.5, a.cryptoGrowth, '%', 'text-slate-400')}
+        ${renderStepperSlider('Metals (APY)', 'assumptions.metalsGrowth', 0, 15, 0.5, a.metalsGrowth || 6, '%', 'text-amber-400')}
+        ${renderStepperSlider('Real Estate (APY)', 'assumptions.realEstateGrowth', 0, 10, 0.5, a.realEstateGrowth, '%', 'text-indigo-400')}
+        ${renderStepperSlider('Inflation', 'assumptions.inflation', 0, 10, 0.1, a.inflation, '%', 'text-red-400')}
     `;
 
     const phasesContent = `
-        ${renderStepperSlider('Go-Go (Age 60-70)', 'phaseGo1', 50, 150, 5, Math.round((a.phaseGo1 || 1.0) * 100), '%', 'text-purple-400')}
-        ${renderStepperSlider('Slow-Go (Age 70-80)', 'phaseGo2', 50, 150, 5, Math.round((a.phaseGo2 || 0.9) * 100), '%', 'text-purple-400')}
-        ${renderStepperSlider('No-Go (Age 80+)', 'phaseGo3', 50, 150, 5, Math.round((a.phaseGo3 || 0.8) * 100), '%', 'text-purple-400')}
+        ${renderStepperSlider('Go-Go (Age 60-70)', 'assumptions.phaseGo1', 50, 150, 5, Math.round((a.phaseGo1 || 1.0) * 100), '%', 'text-purple-400')}
+        ${renderStepperSlider('Slow-Go (Age 70-80)', 'assumptions.phaseGo2', 50, 150, 5, Math.round((a.phaseGo2 || 0.9) * 100), '%', 'text-purple-400')}
+        ${renderStepperSlider('No-Go (Age 80+)', 'assumptions.phaseGo3', 50, 150, 5, Math.round((a.phaseGo3 || 0.8) * 100), '%', 'text-purple-400')}
     `;
 
     // Wrap contents in Collapsible helper
     el.innerHTML = `
-        ${renderCollapsible('PersonalConfig', 'PERSONAL', personalContent, !collapsedSections['PersonalConfig'], null, 'text-white')}
-        ${renderCollapsible('MarketConfig', 'MARKET', marketContent, !collapsedSections['MarketConfig'], null, 'text-white')}
-        ${renderCollapsible('PhaseConfig', 'RETIREMENT PHASES', phasesContent, !collapsedSections['PhaseConfig'], null, 'text-white')}
+        ${renderCollapsible('PersonalConfig', 'PERSONAL', personalContent, !collapsedSections['PersonalConfig'], 'fa-user', 'text-emerald-400')}
+        ${renderCollapsible('MarketConfig', 'MARKET', marketContent, !collapsedSections['MarketConfig'], 'fa-chart-line', 'text-blue-400')}
+        ${renderCollapsible('PhaseConfig', 'RETIREMENT PHASES', phasesContent, !collapsedSections['PhaseConfig'], 'fa-umbrella-beach', 'text-purple-400')}
         
         <div class="mt-8 p-4 bg-red-900/10 border border-red-500/20 rounded-xl text-center">
             <button onclick="if(confirm('Reset all data?')) { localStorage.removeItem('firecalc_data'); window.location.reload(); }" class="text-red-400 font-bold uppercase text-xs tracking-widest">

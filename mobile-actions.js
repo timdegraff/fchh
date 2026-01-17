@@ -116,8 +116,14 @@ window.stepConfig = (path, step) => {
     const key = parts[parts.length - 1];
     let val = parseFloat(ref[key]) || 0;
     
+    let adjustedStep = step;
+    // Handle Phase Config special case: View uses integers (5), Model uses floats (0.05)
+    if (path.includes('phaseGo') && Math.abs(step) >= 1) {
+        adjustedStep = step / 100;
+    }
+
     // Bounds Checking
-    let newVal = val + step;
+    let newVal = val + adjustedStep;
     if (path.includes('Age')) newVal = Math.max(18, Math.min(80, newVal));
     else if (path.includes('growth') || path.includes('inflation')) newVal = Math.max(0, Math.min(15, newVal));
     else if (path.includes('Monthly')) newVal = Math.max(0, newVal);

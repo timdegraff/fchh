@@ -76,9 +76,9 @@ export function renderAssets(el) {
                         <div class="flex-grow space-y-0.5">
                             <input data-path="${sect.path}.${i}.name" value="${item.name}" class="bg-transparent border-none p-0 text-[11px] font-bold text-white w-full placeholder:text-slate-600 focus:ring-0 uppercase tracking-tight">
                             ${sect.path === 'investments' ? `
-                            <div class="flex items-center gap-3">
-                                <div class="relative w-[50%]">
-                                    <select data-path="${sect.path}.${i}.type" class="bg-slate-900 border border-white/10 rounded-lg text-[9px] font-bold uppercase w-full p-1.5 ${typeClass}">
+                            <div class="flex items-center gap-2">
+                                <div class="relative w-[65%]">
+                                    <select data-path="${sect.path}.${i}.type" class="bg-slate-900 border border-white/10 rounded-lg text-[8px] font-bold uppercase w-full p-1.5 ${typeClass}">
                                         <option value="Taxable" ${item.type === 'Taxable' ? 'selected' : ''}>Taxable</option>
                                         <option value="Pre-Tax (401k/IRA)" ${item.type === 'Pre-Tax (401k/IRA)' ? 'selected' : ''}>Pre-Tax</option>
                                         <option value="Roth IRA" ${item.type === 'Roth IRA' ? 'selected' : ''}>Roth IRA</option>
@@ -88,11 +88,11 @@ export function renderAssets(el) {
                                         <option value="HSA" ${item.type === 'HSA' ? 'selected' : ''}>HSA</option>
                                     </select>
                                 </div>
-                                <div class="flex items-center gap-1 ${isBasisNA(item.type) ? 'opacity-0' : ''}">
+                                <div class="flex items-center justify-end gap-1 flex-grow ${isBasisNA(item.type) ? 'opacity-0' : ''}">
                                     <span class="text-[7px] text-slate-500 font-bold uppercase tracking-wider">Basis</span>
                                     <input data-path="${sect.path}.${i}.costBasis" data-type="currency" inputmode="decimal" 
                                         value="${isBasisNA(item.type) ? 'N/A' : math.toCurrency(item.costBasis)}" 
-                                        class="bg-transparent border-none p-0 text-[9px] font-bold text-left text-blue-400 w-16 focus:ring-0 ${isBasisNA(item.type) ? 'pointer-events-none' : ''}">
+                                        class="bg-transparent border-none p-0 text-[9px] font-bold text-right text-blue-400 w-14 focus:ring-0 ${isBasisNA(item.type) ? 'pointer-events-none' : ''}">
                                 </div>
                             </div>
                             ` : ''}

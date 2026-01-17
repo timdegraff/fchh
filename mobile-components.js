@@ -36,7 +36,7 @@ export function renderStepperSlider(label, path, min, max, step, val, suffix = '
                     <button class="w-6 h-6 flex items-center justify-center bg-slate-800 rounded text-slate-400 hover:text-white" onclick="window.stepConfig('${path}', ${step})"><i class="fas fa-plus text-[8px]"></i></button>
                 </div>
             </div>
-            <input type="range" data-path="assumptions.${path}" min="${min}" max="${max}" step="${step}" value="${val}" class="w-full h-1 bg-slate-700 rounded-lg appearance-none cursor-pointer">
+            <input type="range" data-path="${path}" min="${min}" max="${max}" step="${step}" value="${val}" class="w-full h-1 bg-slate-700 rounded-lg appearance-none cursor-pointer">
         </div>
     `;
 }

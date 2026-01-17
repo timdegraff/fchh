@@ -108,11 +108,14 @@
         
         <!-- Sticky Header -->
         <header class="fixed top-0 left-0 right-0 bg-[#0B0F19]/90 backdrop-blur-md border-b border-white/5 z-40 pt-safe transition-all duration-300">
-            <div class="h-14 flex items-center justify-between px-4">
-                <div id="header-left" class="flex flex-col justify-center">
+            <div class="h-14 flex items-center justify-between px-4 relative">
+                <div id="header-left" class="flex flex-col justify-center relative z-10">
                     <!-- Injected by JS -->
                 </div>
-                <div id="header-right" class="text-right flex flex-col justify-center items-end">
+                <div id="header-center" class="absolute left-1/2 top-1/2 -translate-y-1/2 -translate-x-1/2 z-0">
+                    <!-- Dynamic Center Actions (Budget Toggle) -->
+                </div>
+                <div id="header-right" class="text-right flex flex-col justify-center items-end relative z-10">
                     <!-- Injected by JS -->
                 </div>
             </div>
