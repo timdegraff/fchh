@@ -219,7 +219,7 @@ export function initAssetChart(data) {
                     <div class="w-1.5 h-1.5 rounded-full flex-shrink-0" style="background-color: ${colorMap[k]}"></div>
                     <span class="text-[9px] font-black uppercase truncate leading-none" style="color: ${colorMap[k]}">${label}</span>
                 </div>
-                <span class="text-[10px] font-bold text-white leading-tight mono-numbers ml-2 mr-2">${math.toSmartCompactCurrency(totals[k])}</span>
+                <span class="text-[10px] font-bold text-white leading-tight mono-numbers ml-2 mr-4">${math.toSmartCompactCurrency(totals[k])}</span>
             </div>
         `}).join('');
     }
