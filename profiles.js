@@ -119,8 +119,8 @@ export const PROFILE_45_COUPLE = {
         { name: 'Michigan Home', value: 550000, mortgage: 250000, principalPayment: 1400 }
     ],
     income: [
-        { name: 'Primary Income', amount: 175000, increase: 3, contribution: 12, match: 4, bonusPct: 10, isMonthly: false, incomeExpenses: 0, contribOnBonus: true, remainsInRetirement: false },
-        { name: 'Secondary Income', amount: 125000, increase: 3, contribution: 10, match: 3, bonusPct: 0, isMonthly: false, incomeExpenses: 0, contribOnBonus: true, remainsInRetirement: false }
+        { name: 'Primary Income', amount: 175000, increase: 3, contribution: 12, match: 4, bonusPct: 10, isMonthly: false, incomeExpenses: 0, contribOnBonus: false, matchOnBonus: false, remainsInRetirement: false },
+        { name: 'Secondary Income', amount: 125000, increase: 3, contribution: 10, match: 3, bonusPct: 0, isMonthly: false, incomeExpenses: 0, contribOnBonus: false, matchOnBonus: false, remainsInRetirement: false }
     ],
     budget: {
         savings: [
@@ -178,7 +178,7 @@ export const PROFILE_25_SINGLE = {
     ],
     realEstate: [],
     income: [
-        { name: 'Tech Salary', amount: 125000, increase: 3, contribution: 19.0, match: 3, bonusPct: 10, isMonthly: false, incomeExpenses: 0, contribOnBonus: false }
+        { name: 'Tech Salary', amount: 125000, increase: 3, contribution: 19.0, match: 3, bonusPct: 10, isMonthly: false, incomeExpenses: 0, contribOnBonus: false, matchOnBonus: false }
     ],
     debts: [
         { name: 'Student Loans', balance: 12000, principalPayment: 250 }
@@ -230,8 +230,8 @@ export const PROFILE_55_RETIREE = {
         { name: 'Florida Home (Paid Off)', value: 600000, mortgage: 0, principalPayment: 0 }
     ],
     income: [
-        { name: 'Executive Salary', amount: 250000, increase: 2, contribution: 20, match: 4, bonusPct: 15, isMonthly: false, incomeExpenses: 0, remainsInRetirement: false, contribOnBonus: true },
-        { name: 'Corporate Pension', amount: 48000, increase: 0, contribution: 0, match: 0, bonusPct: 0, isMonthly: false, incomeExpenses: 0, remainsInRetirement: true }
+        { name: 'Executive Salary', amount: 250000, increase: 2, contribution: 20, match: 4, bonusPct: 15, isMonthly: false, incomeExpenses: 0, remainsInRetirement: false, contribOnBonus: false, matchOnBonus: false },
+        { name: 'Corporate Pension', amount: 48000, increase: 0, contribution: 0, match: 0, bonusPct: 0, isMonthly: false, incomeExpenses: 0, remainsInRetirement: true, contribOnBonus: false, matchOnBonus: false }
     ],
     budget: {
         savings: [
