@@ -14,8 +14,8 @@ export function updateAidHeader() {
     else if (ratio <= 2.5) { status = 'SILVER'; }
     
     const snap = engine.calculateSnapBenefit(
-        ben.isEarnedIncome ? magi/12 : 0, 
-        ben.isEarnedIncome ? 0 : magi/12, 
+        ben.isEarnedIncome !== false ? magi/12 : 0, 
+        ben.isEarnedIncome !== false ? 0 : magi/12, 
         0, size, ben.shelterCosts, ben.hasSUA, ben.isDisabled, 
         ben.childSupportPaid, ben.depCare, ben.medicalExps, 
         d.assumptions.state, 1, true
@@ -34,6 +34,7 @@ export function updateAidVisuals() {
     const ben = d.benefits;
     const size = 1 + (d.assumptions.filingStatus === 'Married Filing Jointly' ? 1 : 0) + (ben.dependents || []).length;
     const magi = ben.unifiedIncomeAnnual;
+    const isEarned = ben.isEarnedIncome !== false;
     
     // Update MAGI Label
     const magiLabel = document.getElementById('aid-magi-val');
@@ -41,8 +42,8 @@ export function updateAidVisuals() {
 
     // Recalc SNAP
     const snapVal = engine.calculateSnapBenefit(
-        ben.isEarnedIncome ? magi/12 : 0, 
-        ben.isEarnedIncome ? 0 : magi/12, 
+        isEarned ? magi/12 : 0, 
+        isEarned ? 0 : magi/12, 
         0, size, ben.shelterCosts, ben.hasSUA, ben.isDisabled, 
         ben.childSupportPaid, ben.depCare, ben.medicalExps, 
         d.assumptions.state, 1, true
@@ -125,6 +126,9 @@ export function renderAid(el) {
     const hasMedicaidPathway = isExpandedState || ben.isPregnant || ben.isDisabled;
     const isInMedicaidGap = !hasMedicaidPathway && ratio < 1.0;
     
+    // Default Earned to true if undefined
+    const isEarned = ben.isEarnedIncome !== false;
+    
     // Q&A State
     const isQaOpen = window.mobileState.collapsedSections['glossary'];
 
@@ -187,10 +191,10 @@ export function renderAid(el) {
                      <input type="range" data-path="benefits.unifiedIncomeAnnual" min="0" max="150000" step="1000" value="${magi}" class="w-full h-1 bg-slate-700 rounded-lg appearance-none cursor-pointer">
                  </div>
                  <div class="flex justify-between items-center bg-black/20 p-2 rounded-lg">
-                    <span class="text-[10px] font-bold text-slate-500 uppercase">Income Type</span>
+                    <span class="text-[10px] font-bold text-slate-500 uppercase">Earned Income?</span>
                     <label class="flex items-center gap-2">
-                        <input type="checkbox" data-path="benefits.isEarnedIncome" ${ben.isEarnedIncome ? 'checked' : ''} class="rounded bg-slate-800 border-none text-blue-500">
-                        <span class="text-[10px] font-bold text-white uppercase">${ben.isEarnedIncome ? 'Earned (W2)' : 'Unearned (1099/Div)'}</span>
+                        <input type="checkbox" data-path="benefits.isEarnedIncome" ${isEarned ? 'checked' : ''} class="rounded bg-slate-800 border-none text-blue-500">
+                        <span class="text-[10px] font-bold text-white uppercase">EARNED INC</span>
                     </label>
                  </div>
             </div>
@@ -298,7 +302,10 @@ export function renderAid(el) {
                                 <strong class="text-white">Expansion States:</strong> Cover adults up to 138% FPL ($0 cost). 
                             </p>
                             <p class="text-[11px] text-slate-400 leading-relaxed">
-                                <strong class="text-white">Non-Expansion:</strong> Adults under 100% FPL receive no ACA subsidy and no Medicaid. Recommend increasing MAGI to qualify for premium tax credits.
+                                <strong class="text-white">Non-Expansion States:</strong> Adults under 100% FPL receive no ACA subsidy and no Medicaid. Recommend increasing MAGI to qualify for premium tax credits. Non-expansion states include: Texas, Florida, Georgia, Tennessee, Kansas, Mississippi, Alabama, South Carolina, Wisconsin, Wyoming.
+                            </p>
+                            <p class="text-[11px] text-slate-500 leading-relaxed italic border-t border-white/5 pt-2 mt-2">
+                                Laws change often and are subject to change at any time, consult with your CPA and local laws regarding specific eligibility requirements.
                             </p>
                          </div>
                     </div>

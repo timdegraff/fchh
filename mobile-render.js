@@ -260,6 +260,18 @@ export function updateHeaderContext() {
                 </div>
             </div>
         `;
+    } else if (activeTab === 'config') {
+        const d = window.currentData;
+        const curAge = parseFloat(d.assumptions?.currentAge) || 40;
+        const retAge = parseFloat(d.assumptions?.retirementAge) || 65;
+        const yrs = Math.max(0, retAge - curAge);
+        
+        html = `
+            <div class="text-right">
+                <div class="text-[9px] font-bold text-slate-500 uppercase tracking-widest">Yrs to Retire</div>
+                <div class="font-black text-blue-400 text-lg tracking-tighter mono-numbers">${yrs}</div>
+            </div>
+        `;
     } else if (activeTab === 'fire') {
         const d = window.currentData;
         const mode = d.burndown?.strategyMode || 'RAW';

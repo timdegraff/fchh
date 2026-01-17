@@ -1,3 +1,4 @@
+
 import { math, engine, stateTaxRates, STATE_NAME_TO_CODE } from './utils.js';
 
 export const benefits = {
@@ -48,7 +49,7 @@ export const benefits = {
                             <div class="flex flex-col">
                                 <h3 class="text-xs font-black text-white uppercase tracking-widest">Sandbox MAGI</h3>
                                 <div class="flex items-center gap-2 mt-0.5">
-                                    <span class="text-[8px] font-black text-slate-500 uppercase">W2/1099 Income?</span>
+                                    <span class="text-[8px] font-black text-slate-500 uppercase">Earned Income?</span>
                                     <label class="relative inline-flex items-center cursor-pointer">
                                         <input type="checkbox" data-benefit-id="isEarnedIncome" class="sr-only peer" checked>
                                         <div class="w-6 h-3 bg-slate-800 rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[1px] after:left-[1px] after:bg-white after:rounded-full after:h-2.5 after:w-2.5 after:transition-all peer-checked:bg-teal-600"></div>
@@ -138,7 +139,7 @@ export const benefits = {
                          <h4 class="text-[10px] font-black text-blue-400 uppercase tracking-widest mb-3 flex items-center gap-2"><i class="fas fa-info-circle"></i> Benefit Modeling Logic</h4>
                          <div class="space-y-3">
                             <p class="text-[11px] text-slate-400 leading-relaxed">
-                                <strong class="text-white">Asset Test:</strong> This calculator ignores asset tests. Be aware that the following states typically enforce asset limits ($2,750 - $5,000) which may disqualify you if you have savings: <strong>Texas, Idaho, Indiana, Iowa, Kansas, Mississippi, Missouri, South Dakota, Tennessee, Wyoming.</strong>
+                                <strong class="text-white">Asset Test:</strong> This calculator ignores asset tests. Be aware that the following states typically enforce asset limits ($2,750 - $5,000) which may disqualify you if you have savings: <strong>TX, ID, IN, IA, KS, MS, MO, SD, TN, WY.</strong>
                             </p>
                             <p class="text-[11px] text-slate-400 leading-relaxed">
                                 <strong class="text-white">Birth Years:</strong> Dependents are modeled as independent at age 19. Birth years making a child 19 or older in the current year are excluded from the effective household size.
@@ -152,7 +153,10 @@ export const benefits = {
                                 <strong class="text-white">Expansion States:</strong> Cover adults up to 138% FPL ($0 cost). 
                             </p>
                             <p class="text-[11px] text-slate-400 leading-relaxed">
-                                <strong class="text-white">Non-Expansion:</strong> Adults under 100% FPL receive no ACA subsidy and no Medicaid. Recommend increasing MAGI to qualify for premium tax credits.
+                                <strong class="text-white">Non-Expansion States:</strong> Adults under 100% FPL receive no ACA subsidy and no Medicaid. Recommend increasing MAGI to qualify for premium tax credits. Non-expansion states include: Texas, Florida, Georgia, Tennessee, Kansas, Mississippi, Alabama, South Carolina, Wisconsin, Wyoming.
+                            </p>
+                            <p class="text-[11px] text-slate-500 leading-relaxed italic border-t border-white/5 pt-2 mt-2">
+                                Laws change often and are subject to change at any time, consult with your CPA and local laws regarding specific eligibility requirements.
                             </p>
                          </div>
                     </div>
@@ -447,9 +451,9 @@ export const benefits = {
             depCare: get('depCare'), 
             medicalExps: get('medicalExps'), 
             hasSUA: get('hasSUA'), 
-            isEarnedIncome: get('isEarnedIncome'), 
-            isDisabled: get('isDisabled'), 
-            isPregnant: get('isPregnant'), 
+            isEarnedIncome: get('isEarnedIncome', true), 
+            isDisabled: get('isDisabled', true), 
+            isPregnant: get('isPregnant', true), 
             dependents: Array.from(c.querySelectorAll('.dependent-visual-item')).map(item => ({ 
                 name: item.querySelector('[data-id="depName"]').value, 
                 birthYear: parseInt(item.querySelector('[data-id="birthYear"]').value) 
@@ -462,7 +466,19 @@ export const benefits = {
         const c = document.getElementById('benefits-module'); if (!c) return;
         const list = document.getElementById('dependents-list'); if (list) list.innerHTML = '';
         (data.dependents || []).forEach(d => benefits.addDependent(d));
-        Object.entries(data).forEach(([key, val]) => { if (key === 'dependents') return; const el = c.querySelector(`[data-benefit-id="${key}"]`); if (el) { if (el.type === 'checkbox') el.checked = !!val; else if (el.dataset.type === 'currency') el.value = math.toCurrency(val); else el.value = val; } });
+        Object.entries(data).forEach(([key, val]) => { 
+            if (key === 'dependents') return; 
+            const el = c.querySelector(`[data-benefit-id="${key}"]`); 
+            if (el) { 
+                if (el.type === 'checkbox') {
+                    // Fix: Ensure undefined/null defaults to checked for Earned Income, unchecked for others
+                    if (key === 'isEarnedIncome') el.checked = val !== false;
+                    else el.checked = !!val; 
+                } 
+                else if (el.dataset.type === 'currency') el.value = math.toCurrency(val); 
+                else el.value = val; 
+            } 
+        });
         benefits.refresh();
     }
 };
