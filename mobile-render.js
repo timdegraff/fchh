@@ -497,7 +497,7 @@ export function renderFire(el) {
             <div class="grid grid-cols-3 gap-2 px-2">
                 <div class="bg-slate-900/50 rounded-xl border border-slate-800 p-2 flex flex-col items-center justify-center text-center">
                     <i class="fas fa-shield-alt text-amber-500 text-[10px] mb-1"></i>
-                    <div class="text-[8px] font-bold text-slate-500 uppercase tracking-tight">Preserve</div>
+                    <div class="text-[8px] font-bold text-slate-500 uppercase tracking-tight">Preservation</div>
                     <div class="text-sm font-black text-amber-500 mono-numbers leading-none mt-0.5">${presAge}</div>
                 </div>
                 <div class="bg-slate-900/50 rounded-xl border border-slate-800 p-2 flex flex-col items-center justify-center text-center">
@@ -507,7 +507,7 @@ export function renderFire(el) {
                 </div>
                 <div class="bg-slate-900/50 rounded-xl border border-slate-800 p-2 flex flex-col items-center justify-center text-center">
                     <i class="fas fa-skull text-pink-400 text-[10px] mb-1"></i>
-                    <div class="text-[8px] font-bold text-slate-500 uppercase tracking-tight">DWZ</div>
+                    <div class="text-[8px] font-bold text-slate-500 uppercase tracking-tight">Die With $0</div>
                     <div class="text-sm font-black text-pink-400 mono-numbers leading-none mt-0.5">${math.toSmartCompactCurrency(dwzVal)}</div>
                 </div>
             </div>
