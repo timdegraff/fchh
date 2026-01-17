@@ -70,8 +70,10 @@ export function renderAssets(el) {
             }
         });
         
-        // Debt sections show positive balance in Red on header
-        const netColor = isDebt ? 'text-red-400' : 'text-emerald-400';
+        // Custom Header Colors
+        let netColor = isDebt ? 'text-red-400' : 'text-emerald-400';
+        if (sect.isOption) netColor = 'text-orange-400'; // Override for Options
+        
         const prefix = isDebt ? '-' : '';
         const netDisplay = net !== 0 ? (isDebt ? math.toSmartCompactCurrency(-net) : math.toSmartCompactCurrency(net)) : '';
         
@@ -205,12 +207,14 @@ export function initAssetChart(data) {
     const legend = document.getElementById('assetLegend');
     if (legend) {
         legend.innerHTML = sortedKeys.map(k => {
-            const label = k === 'Stock Options' ? 'Options' : k.replace(/\(.*\)/, '');
+            const label = k === 'Stock Options' ? 'Options' : k.replace(/\(.*\)/, '').trim();
             return `
-            <div class="flex items-center gap-2 min-w-0">
-                <div class="w-1.5 h-1.5 rounded-full flex-shrink-0" style="background-color: ${colorMap[k]}"></div>
-                <span class="text-[9px] font-black uppercase truncate leading-none" style="color: ${colorMap[k]}">${label}</span>
-                <span class="text-[10px] font-bold text-white leading-tight mono-numbers">${math.toSmartCompactCurrency(totals[k])}</span>
+            <div class="flex items-center justify-between w-full">
+                <div class="flex items-center gap-2 min-w-0 overflow-hidden">
+                    <div class="w-1.5 h-1.5 rounded-full flex-shrink-0" style="background-color: ${colorMap[k]}"></div>
+                    <span class="text-[9px] font-black uppercase truncate leading-none" style="color: ${colorMap[k]}">${label}</span>
+                </div>
+                <span class="text-[10px] font-bold text-white leading-tight mono-numbers ml-2">${math.toSmartCompactCurrency(totals[k])}</span>
             </div>
         `}).join('');
     }

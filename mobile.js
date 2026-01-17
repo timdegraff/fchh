@@ -134,6 +134,7 @@ function attachListeners() {
         
         const pathParts = target.dataset.path.split('.');
         const dataType = target.dataset.type;
+        const key = pathParts[pathParts.length - 1];
         
         let val = target.value;
 
@@ -157,6 +158,14 @@ function attachListeners() {
             if (target.dataset.path.includes('phaseGo')) {
                 val = val / 100;
             }
+        } else if (target.type === 'number') {
+            val = parseFloat(val) || 0;
+        }
+
+        // Prevent negatives for key financial inputs
+        const nonNegativeFields = ['growth', 'increase', 'contribution', 'match', 'bonusPct', 'rate', 'shares', 'strikePrice', 'currentPrice', 'value', 'balance', 'limit', 'mortgage', 'loan', 'costBasis', 'annual', 'monthly', 'amount', 'incomeExpenses'];
+        if (nonNegativeFields.includes(key)) {
+            val = Math.max(0, val);
         }
 
         // Deep set
@@ -199,8 +208,12 @@ function attachListeners() {
                 
                 // Also update color if needed (though existing class should handle it)
                 if (headerEl.parentElement) {
-                    headerEl.parentElement.classList.remove('text-emerald-400', 'text-red-400');
-                    headerEl.parentElement.classList.add(isDebt ? 'text-red-400' : 'text-emerald-400');
+                    if (collectionName === 'stockOptions') {
+                        // Maintain orange color override for stock options
+                    } else {
+                        headerEl.parentElement.classList.remove('text-emerald-400', 'text-red-400');
+                        headerEl.parentElement.classList.add(isDebt ? 'text-red-400' : 'text-emerald-400');
+                    }
                 }
             }
         }

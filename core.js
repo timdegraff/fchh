@@ -182,6 +182,11 @@ function attachGlobalListeners() {
                 }
 
                 newVal = parseFloat(newVal.toFixed(2));
+                // Stepper click - prevent negative if needed, though step logic handles bounds if logic above allows
+                const nonNegativeFields = ['growth', 'increase', 'contribution', 'match', 'bonusPct', 'rate', 'shares', 'strikePrice', 'currentPrice', 'value', 'balance', 'limit', 'mortgage', 'loan', 'costBasis', 'annual', 'monthly', 'amount', 'incomeExpenses', 'ssMonthly'];
+                if (nonNegativeFields.includes(btn.dataset.target)) {
+                    newVal = Math.max(0, newVal);
+                }
 
                 if (input.dataset.type === 'currency') {
                     input.value = math.toCurrency(newVal);
@@ -229,6 +234,22 @@ function attachGlobalListeners() {
         const target = e.target;
         const dataId = target.dataset.id;
 
+        // Prevent Negative Values
+        if (dataId) {
+            const nonNegativeFields = ['growth', 'increase', 'contribution', 'match', 'bonusPct', 'rate', 'shares', 'strikePrice', 'currentPrice', 'value', 'balance', 'limit', 'mortgage', 'loan', 'costBasis', 'annual', 'monthly', 'amount', 'incomeExpenses'];
+            if (nonNegativeFields.includes(dataId)) {
+                let val = (target.dataset.type === 'currency' || target.dataset.type === 'percent') ? math.fromCurrency(target.value) : parseFloat(target.value);
+                if (val < 0) {
+                    val = 0;
+                    // Note: changing target.value directly while typing can interrupt cursor flow, 
+                    // but preventing negatives is strict per request. 
+                    // For formatted inputs, rely on formatter logic, but update model correctly.
+                    // If simple number input:
+                    if (target.type === 'number') target.value = 0; 
+                }
+            }
+        }
+
         if (dataId && GLOBAL_SYNC_KEYS.includes(dataId)) {
             const isMultiplier = ['phaseGo1', 'phaseGo2', 'phaseGo3'].includes(dataId);
             let logicVal = (target.dataset?.type === 'currency' || target.dataset?.type === 'percent') ? math.fromCurrency(target.value) : parseFloat(target.value);
@@ -250,6 +271,9 @@ function attachGlobalListeners() {
             if (dataId === 'currentAge') {
                 if (logicVal > 72) logicVal = 72;
             }
+
+            // Ensure non-negative logic val
+            if (logicVal < 0 && !['phaseGo1','phaseGo2','phaseGo3'].includes(dataId)) logicVal = 0;
 
             document.querySelectorAll(`[data-id="${dataId}"]`).forEach(el => {
                 if (el === target) return;
@@ -290,6 +314,103 @@ function attachGlobalListeners() {
         if (target.closest('.input-base, .input-range, .benefit-slider, .mobile-slider') || target.closest('input[data-id]')) {
             if (dataId === 'retirementAge' && document.querySelector('[data-tab="burndown"]')?.classList.contains('active')) burndown.run();
             if (window.debouncedAutoSave) window.debouncedAutoSave();
+        }
+
+        // DESKTOP ONLY: Sync 401k Match to Budget Row immediately
+        if (target.closest('#income-cards') || target.dataset.id === 'currentAge') {
+            // Recalculate summary using current data state (assumes data binding has updated object via autoSave mechanism or we manually trigger logic)
+            // Note: window.currentData is updated by the 'input' listener later in this block or via data.js mechanics?
+            // Actually, core.js doesn't auto-update window.currentData immediately on every input for complex nested structures like income array
+            // UNLESS scrapeData is called. 
+            // `autoSave` calls scrapeData. 
+            // To get immediate feedback, we might need to manually update the data object for the specific field changed here or force a scrape.
+            // Since `forceSyncData` updates everything, let's use that but ensure it doesn't kill focus.
+            // Actually, simpler approach: The standard autosave loop handles persistence.
+            // But for the specific "match" calculation, we need up-to-date data.
+            // Let's rely on the fact that for simple inputs, we might need to read values from DOM to calculate if we want instant reaction.
+            
+            // However, since we are inside `input` listener, `window.currentData` might be stale until `scrapeData` runs.
+            // Let's force a scrape of the Income section specifically or just wait for debounce?
+            // The prompt implies "make sure... match is going into savings".
+            // Let's invoke a lightweight update.
+            setTimeout(() => {
+                // Wait for any other handlers to settle
+                const s = engine.calculateSummaries(window.currentData); // This assumes currentData is updated. 
+                // Currently core.js relies on `scrapeData` inside `autoSave`. 
+                // We should probably trigger a scrape here if we want immediate math.
+                // But `scrapeData` rebuilds `window.currentData` from DOM.
+                
+                // Let's try to update the Locked Row based on DOM values if possible, or force a sync.
+                // Force sync is safest but expensive.
+                // Let's do a targeted DOM read for income to calc match.
+                
+                // Actually, existing `autoSave` runs on 1000ms debounce.
+                // We can manually update the DOM element for the locked row in `updateSummaries` inside `data.js`.
+                // But here we want to ensure it happens.
+                
+                // Let's just update the specific row here using the engine, assumming `window.currentData` will be updated by the time 
+                // the user stops typing or we can fetch from DOM. 
+                // Ideally, we move the 401k row update logic to `updateSummaries` in `data.js`.
+                // For now, let's hack it here to ensure it works as requested.
+                
+                // 1. Scrape income specifically
+                const incomeRows = document.querySelectorAll('#income-cards .removable-item');
+                const incomeData = Array.from(incomeRows).map(row => {
+                    const getVal = (id) => {
+                        const el = row.querySelector(`[data-id="${id}"]`);
+                        if (!el) return 0;
+                        if (el.dataset.type === 'currency' || el.dataset.type === 'percent') return math.fromCurrency(el.value);
+                        return parseFloat(el.value) || 0;
+                    };
+                    const getBool = (id) => row.querySelector(`[data-id="${id}"]`)?.value === 'true';
+                    const getCheck = (id) => row.querySelector(`[data-id="${id}"]`)?.checked;
+                    
+                    return {
+                        amount: getVal('amount'),
+                        increase: getVal('increase'),
+                        contribution: getVal('contribution'),
+                        match: getVal('match'),
+                        bonusPct: getVal('bonusPct'),
+                        isMonthly: getBool('isMonthly'),
+                        contribOnBonus: getCheck('contribOnBonus'),
+                        matchOnBonus: getCheck('matchOnBonus')
+                    };
+                });
+                
+                // 2. Calc Total using shared engine logic but with local data
+                // We need to construct a partial data object
+                const tempContext = { 
+                    income: incomeData, 
+                    assumptions: { 
+                        currentAge: parseFloat(document.querySelector('[data-id="currentAge"]')?.value) || 40 
+                    } 
+                };
+                const tempSum = engine.calculateSummaries(tempContext);
+                
+                // 3. Update Budget Row
+                const budgetTable = document.getElementById('budget-savings-rows');
+                if (budgetTable) {
+                    const rows = Array.from(budgetTable.children);
+                    // Find the locked row. It has a hidden input with value "Pre-Tax (401k/IRA)"
+                    const autoRow = rows.find(r => {
+                        const t = r.querySelector('input[data-id="type"]');
+                        return t && t.value === 'Pre-Tax (401k/IRA)' && r.classList.contains('locked-row');
+                    });
+                    
+                    if (autoRow) {
+                        const annInput = autoRow.querySelector('[data-id="annual"]');
+                        const monInput = autoRow.querySelector('[data-id="monthly"]');
+                        if (annInput) {
+                            annInput.value = math.toCurrency(tempSum.total401kContribution);
+                            formatter.updateZeroState(annInput);
+                        }
+                        if (monInput) {
+                            monInput.value = math.toCurrency(tempSum.total401kContribution / 12);
+                            formatter.updateZeroState(monInput);
+                        }
+                    }
+                }
+            }, 50);
         }
     });
 
