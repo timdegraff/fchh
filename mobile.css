@@ -217,22 +217,22 @@ input:disabled {
 /* Simplified Table (FIRE) */
 .fire-table { width: 100%; border-collapse: collapse; font-size: 11px; }
 .fire-table th { 
-    text-align: right; 
+    text-align: center; /* Forced Center */
     padding: 8px 4px; 
     color: #64748b; 
     font-weight: 800; 
     text-transform: uppercase;
     border-bottom: 1px solid rgba(255,255,255,0.1);
 }
-.fire-table th:first-child { text-align: left; }
+.fire-table th:first-child { text-align: center; }
 .fire-table td { 
-    text-align: right; 
+    text-align: center; /* Forced Center */
     padding: 10px 4px; 
     border-bottom: 1px solid rgba(255,255,255,0.03); 
     font-family: 'Inter', monospace;
     font-feature-settings: "tnum";
 }
-.fire-table td:first-child { text-align: left; font-weight: bold; color: #94a3b8; }
+.fire-table td:first-child { text-align: center; font-weight: bold; color: #94a3b8; }
 .fire-row-insolvent td { color: #ef4444; }
 .fire-row-platinum td { color: #10b981; }
 

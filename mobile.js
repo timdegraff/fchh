@@ -120,6 +120,9 @@ function attachListeners() {
             target.value = isNaN(raw) ? '' : raw;
             // Also avoid type switching for percent to be safe
         }
+        
+        // Auto-select content for single-click edit
+        setTimeout(() => target.select(), 0);
     });
 
     // Blur: Reformat with units
