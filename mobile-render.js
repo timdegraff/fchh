@@ -5,6 +5,7 @@ import { calculateDieWithZero } from './burndown-dwz.js';
 import { renderCollapsible, renderStepperSlider } from './mobile-components.js';
 import { renderAssets, updateAssetChart } from './mobile-render-assets.js';
 import { renderAid, updateAidHeader, updateAidVisuals } from './mobile-render-benefits.js';
+import { renderTrace } from './burndown-render.js';
 
 // Re-export specific update functions for mobile.js/actions
 export { updateAssetChart, updateAidHeader, updateAidVisuals };
@@ -533,104 +534,121 @@ export function renderFire(el) {
         priority: ['cash', 'roth-basis', 'taxable', 'crypto', 'metals', 'heloc', '401k', 'hsa', 'roth-earnings']
     });
 
-    // Fire Controls (Engine + SNAP)
-    const controlsHtml = `
-        <div class="grid grid-cols-2 gap-3 mb-4">
-            <div class="bg-slate-900/30 rounded-xl border border-slate-800/50 p-2">
-                <label class="text-[8px] font-black text-slate-500 uppercase tracking-widest block mb-1.5 text-center">Engine</label>
-                <div class="grid grid-cols-2 gap-1 bg-black/40 rounded-lg p-1">
-                    <button onclick="window.stepConfig('burndown.strategyMode', 0); window.mobileState.tempMode='PLATINUM'; window.mobileAutoSave()" class="rounded py-1 text-[8px] font-black uppercase tracking-tight transition-all ${strategyMode === 'PLATINUM' ? 'bg-emerald-500/20 text-emerald-400 shadow-sm' : 'text-slate-500 hover:text-slate-300'}">
-                        Hunter
-                    </button>
-                    <button onclick="window.stepConfig('burndown.strategyMode', 0); window.mobileState.tempMode='RAW'; window.mobileAutoSave()" class="rounded py-1 text-[8px] font-black uppercase tracking-tight transition-all ${strategyMode === 'RAW' ? 'bg-blue-500/20 text-blue-400 shadow-sm' : 'text-slate-500 hover:text-slate-300'}">
-                        Iron Fist
-                    </button>
-                </div>
-            </div>
-            
-            <div class="bg-slate-900/30 rounded-xl border border-slate-800/50 p-2 flex flex-col justify-between ${strategyMode === 'RAW' ? 'opacity-40 pointer-events-none' : ''}">
-                <div class="flex justify-between items-start mb-1">
-                    <label class="text-[8px] font-black text-emerald-500 uppercase tracking-widest">Food Aid</label>
-                    <span class="text-[9px] font-bold text-emerald-400 mono-numbers">${math.toCurrency(snapPreserve)}/mo</span>
-                </div>
-                <input type="range" data-path="burndown.snapPreserve" min="0" max="2000" step="100" value="${snapPreserve}" class="w-full h-1 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-emerald-500">
-            </div>
-        </div>
-    `;
-
-    // Fire Table is raw HTML for now, could be componentized later if needed
-    // Render draws logic inside renderFire
+    // Helper for Draw Cell
     const renderDrawsCell = (draws) => {
         const significant = Object.entries(draws).filter(([k,v]) => v > 50).sort((a,b) => b[1] - a[1]);
         if (significant.length === 0) return '<span class="opacity-20">-</span>';
         
         return significant.map(([k, v]) => {
-            const color = assetColors[k] || '#fff';
+            const labelMap = {
+                'cash': 'Cash',
+                'taxable': 'Brokerage',
+                'roth-basis': 'Roth Basis',
+                'heloc': 'HELOC',
+                '401k': 'Pre-Tax',
+                'roth-earnings': 'Roth Gain',
+                'crypto': 'Crypto',
+                'metals': 'Metals',
+                'hsa': 'HSA'
+            };
+            
+            const colorKeyMap = {
+                'cash': 'Cash',
+                'taxable': 'Taxable',
+                'roth-basis': 'Roth IRA',
+                'heloc': 'HELOC',
+                '401k': 'Pre-Tax (401k/IRA)',
+                'roth-earnings': 'Roth Gains',
+                'crypto': 'Crypto',
+                'metals': 'Metals',
+                'hsa': 'HSA'
+            };
+            
+            const label = labelMap[k] || k;
+            const displayColor = assetColors[colorKeyMap[k]] || '#94a3b8';
+
             return `<div class="flex items-center justify-end gap-1.5 leading-none mb-0.5">
-                <span class="text-[8px] font-bold opacity-60 uppercase truncate w-12 text-right" style="color:${color}">${assetColors[k] ? k.replace(/\(.*\)/,'').substring(0,8) : 'Asset'}</span>
-                <span class="font-bold mono-numbers" style="color:${color}">${math.toSmartCompactCurrency(v)}</span>
+                <span class="text-[8px] font-black uppercase truncate w-14 text-right" style="color:${displayColor}">${label}</span>
+                <span class="font-bold mono-numbers text-[9px]" style="color:${displayColor}">${math.toSmartCompactCurrency(v)}</span>
             </div>`;
         }).join('');
     };
 
     const fireTable = `
-        <div class="mobile-card p-0 overflow-hidden mt-4">
-            <table class="fire-table">
-                <thead class="bg-slate-900/50">
-                    <tr><th>Age</th><th>Budget</th><th>Status</th><th>Draw</th><th>NW</th></tr>
-                </thead>
-                <tbody>
-                    ${results.map(r => `
-                        <tr class="${r.status === 'INSOLVENT' ? 'fire-row-insolvent' : (r.status === 'Platinum' ? 'fire-row-platinum' : '')}">
-                            <td>${r.age}</td>
-                            <td>${math.toSmartCompactCurrency(r.budget)}</td>
-                            <td><span class="text-[7px] font-black uppercase opacity-60">${r.status.substring(0,8)}</span></td>
-                            <td class="py-1">${renderDrawsCell(r.draws)}</td>
-                            <td>${math.toSmartCompactCurrency(r.netWorth)}</td>
+        <div class="mobile-card p-0 overflow-hidden mt-4 bg-[#0B0F19] border border-white/10">
+            <div class="overflow-x-auto">
+                <table class="fire-table w-full whitespace-nowrap">
+                    <thead class="bg-slate-900/90 text-xs font-bold text-slate-500 uppercase tracking-wider border-b border-white/10">
+                        <tr>
+                            <th class="sticky left-0 bg-[#1e293b] z-20 px-3 py-2 text-left shadow-[2px_0_5px_rgba(0,0,0,0.3)]">Age</th>
+                            <th class="px-3 py-2 text-right">Budget</th>
+                            <th class="px-3 py-2 text-center">Status</th>
+                            <th class="px-3 py-2 text-right text-teal-400">Income</th>
+                            <th class="px-3 py-2 text-right">Draws</th>
+                            <th class="px-3 py-2 text-right text-teal-400">Net Worth</th>
                         </tr>
-                    `).join('')}
-                </tbody>
-            </table>
+                    </thead>
+                    <tbody class="divide-y divide-white/5 text-[10px]">
+                        ${results.map(r => `
+                            <tr class="${r.status === 'INSOLVENT' ? 'bg-red-900/10' : ''}">
+                                <td class="sticky left-0 bg-[#1e293b] z-10 px-3 py-2 font-bold text-white shadow-[2px_0_5px_rgba(0,0,0,0.3)] border-r border-white/5">
+                                    ${r.age}
+                                </td>
+                                <td class="px-3 py-2 text-right font-medium text-slate-300">
+                                    ${math.toSmartCompactCurrency(r.budget)}
+                                </td>
+                                <td class="px-3 py-2 text-center">
+                                    <span class="px-1.5 py-0.5 rounded text-[8px] font-black uppercase ${r.status === 'INSOLVENT' ? 'bg-red-500/20 text-red-400' : (r.status.includes('Platinum') ? 'bg-emerald-500/20 text-emerald-400' : 'bg-slate-700 text-slate-400')}">
+                                        ${r.status.substring(0,8)}
+                                    </span>
+                                </td>
+                                <td class="px-3 py-2 text-right font-bold text-teal-400">
+                                    ${math.toSmartCompactCurrency(r.floorGross)}
+                                </td>
+                                <td class="px-3 py-2 text-right">
+                                    <div class="flex flex-col items-end">
+                                        ${renderDrawsCell(r.draws)}
+                                    </div>
+                                </td>
+                                <td class="px-3 py-2 text-right font-black text-teal-400">
+                                    ${math.toSmartCompactCurrency(r.netWorth)}
+                                </td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            </div>
         </div>
     `;
 
     const traceContent = `
-        <div class="p-4 bg-black/20 font-mono text-[10px] text-slate-400 max-h-60 overflow-y-auto">
-            <div class="flex items-center gap-2 mb-2">
-                <span>Year:</span>
-                <input type="number" id="trace-year-input" class="bg-slate-800 text-white w-16 p-1 rounded" value="${new Date().getFullYear()}">
+        <div class="p-2 bg-black/20">
+            <div class="flex items-center justify-between mb-4 bg-slate-900/50 p-2 rounded-xl border border-white/5">
+                <span class="text-[10px] font-bold text-slate-500 uppercase tracking-widest pl-2">Simulation Year</span>
+                <div class="flex items-center gap-1 bg-black/40 rounded-lg p-1">
+                    <button class="w-8 h-8 flex items-center justify-center bg-white/5 rounded-md text-slate-400 hover:text-white active:bg-white/10" onclick="const el=document.getElementById('trace-year-input'); el.stepDown(); el.dispatchEvent(new Event('input'))"><i class="fas fa-minus text-[10px]"></i></button>
+                    <input type="number" id="trace-year-input" class="bg-transparent border-none text-blue-400 font-black text-lg w-16 text-center p-0 mono-numbers focus:ring-0" value="${new Date().getFullYear()}">
+                    <button class="w-8 h-8 flex items-center justify-center bg-white/5 rounded-md text-slate-400 hover:text-white active:bg-white/10" onclick="const el=document.getElementById('trace-year-input'); el.stepUp(); el.dispatchEvent(new Event('input'))"><i class="fas fa-plus text-[10px]"></i></button>
+                </div>
             </div>
-            <div id="mobile-trace-output"></div>
+            <div id="mobile-trace-output" class="space-y-4 text-xs"></div>
         </div>
     `;
 
     el.innerHTML = `
-        ${controlsHtml}
         ${fireTable}
         <div class="mt-8">
-            ${renderCollapsible('trace', 'Logic Trace', traceContent, !collapsedSections['trace'])}
+            ${renderCollapsible('trace', 'Logic Trace', traceContent, !collapsedSections['trace'], 'fa-terminal', 'text-slate-400')}
         </div>
     `;
     
-    // Re-attach event listeners for the mode toggle manually since we used inline JS for simplicity in the string
-    const modeBtns = el.querySelectorAll('button[onclick*="tempMode"]');
-    modeBtns.forEach(btn => {
-        btn.onclick = () => {
-            const mode = btn.innerText.includes('HUNTER') ? 'PLATINUM' : (btn.innerText.includes('IRON') ? 'RAW' : (btn.innerText.includes('Hunter') ? 'PLATINUM' : 'RAW'));
-            window.currentData.burndown.strategyMode = mode;
-            window.mobileAutoSave();
-            renderApp(); // Re-render to update UI state
-        };
-    });
-
     setTimeout(() => {
         const inp = document.getElementById('trace-year-input');
         if (inp) {
             inp.oninput = () => {
                 const y = parseInt(inp.value);
-                const r = results.find(x => x.year === y);
                 const out = document.getElementById('mobile-trace-output');
-                if (out) out.innerHTML = r ? r.traceLog.join('<br>') : 'No Data';
+                if (out) renderTrace(out, results, y);
             };
             inp.dispatchEvent(new Event('input'));
         }
