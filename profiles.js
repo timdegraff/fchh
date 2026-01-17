@@ -1,27 +1,26 @@
 
 export const BLANK_PROFILE = {
     investments: [
-        { name: 'TIM 401K', type: 'Pre-Tax (401k/IRA)', value: 670600, costBasis: 0 },
-        { name: 'TIM ROTH', type: 'Roth IRA', value: 248850, costBasis: 80000 },
-        { name: 'JESS ROTH', type: 'Roth IRA', value: 197560, costBasis: 50000 },
-        { name: 'JESS BROKERAGE', type: 'Taxable', value: 86269, costBasis: 85000 },
+        { name: '401K', type: 'Pre-Tax (401k/IRA)', value: 670600, costBasis: 0 },
+        { name: 'ROTH', type: 'Roth IRA', value: 248850, costBasis: 80000 },
+        { name: 'ROTH', type: 'Roth IRA', value: 197560, costBasis: 50000 },
+        { name: 'BROKERAGE', type: 'Taxable', value: 86269, costBasis: 85000 },
         { name: 'BITCOIN', type: 'Crypto', value: 100805, costBasis: 100500 },
         { name: 'GOLD', type: 'Metals', value: 19000, costBasis: 15000 },
         { name: 'SILVER', type: 'Metals', value: 4000, costBasis: 3000 },
         { name: 'HSA', type: 'HSA', value: 35000, costBasis: 0 },
         { name: 'TEAMGM', type: 'Taxable', value: 30000, costBasis: 30000 },
-        { name: 'APRIL CTT', type: 'Taxable', value: 50000, costBasis: 50000 },
+        { name: 'CTT', type: 'Taxable', value: 50000, costBasis: 50000 },
         { name: 'CHECKING ACCOUNT', type: 'Cash', value: 25000, costBasis: 25000 }
     ],
     stockOptions: [],
     realEstate: [
-        { name: '11581 BILLMAN', value: 550000, mortgage: 199000, principalPayment: 500 },
-        { name: '11475 BILLMAN', value: 200000, mortgage: 0, principalPayment: 0 }
+        { name: 'Home', value: 550000, mortgage: 199000, principalPayment: 500 },
+        { name: 'Rental 1', value: 200000, mortgage: 0, principalPayment: 0 }
     ],
     helocs: [
         { name: 'HOME', balance: 0, limit: 273750, rate: 6.75 },
-        { name: 'RENTAL', balance: 0, limit: 120000, rate: 6.75 },
-        { name: 'EMERGENCY LINE', balance: 0, limit: 100000, rate: 8.5 }
+        { name: 'RENTAL', balance: 0, limit: 120000, rate: 6.75 }
     ],
     otherAssets: [
         { name: 'RV', value: 25000, loan: 0 },
@@ -29,13 +28,12 @@ export const BLANK_PROFILE = {
         { name: 'TRACTOR', value: 40000, loan: 25000 }
     ],
     debts: [
-        { name: 'HOME DEPOT', balance: 16500, principalPayment: 160 },
-        { name: 'CREDIT CARDS', balance: 7000, principalPayment: 200 }
+        { name: 'HOME DEPOT', balance: 16500, principalPayment: 160 }
     ],
     income: [
-        { name: 'GM SALARY', amount: 186561, increase: 3.5, contribution: 12.5, match: 10, bonusPct: 23, isMonthly: false, incomeExpenses: 0, remainsInRetirement: false, contribOnBonus: false, matchOnBonus: false },
-        { name: 'CELL TOWER', amount: 1200, increase: 1.5, contribution: 0, match: 0, bonusPct: 0, isMonthly: true, incomeExpenses: 0, remainsInRetirement: true, contribOnBonus: false, matchOnBonus: false },
-        { name: '11475 RENTAL', amount: 1575, increase: 3, contribution: 0, match: 0, bonusPct: 0, isMonthly: true, incomeExpenses: 450, incomeExpensesMonthly: true, remainsInRetirement: true, contribOnBonus: false, matchOnBonus: false }
+        { name: 'SALARY', amount: 186561, increase: 3.5, contribution: 12.5, match: 10, bonusPct: 23, isMonthly: false, incomeExpenses: 0, remainsInRetirement: false, contribOnBonus: false, matchOnBonus: false },
+        { name: 'TOWER', amount: 1200, increase: 1.5, contribution: 0, match: 0, bonusPct: 0, isMonthly: true, incomeExpenses: 0, remainsInRetirement: true, contribOnBonus: false, matchOnBonus: false },
+        { name: 'RENTAL1', amount: 1575, increase: 3, contribution: 0, match: 0, bonusPct: 0, isMonthly: true, incomeExpenses: 450, incomeExpensesMonthly: true, remainsInRetirement: true, contribOnBonus: false, matchOnBonus: false }
     ],
     budget: {
         savings: [
@@ -87,10 +85,10 @@ export const BLANK_PROFILE = {
         shelterCosts: 2000,
         hasSUA: true,
         dependents: [
-            { name: "EVAN", birthYear: 2014 },
-            { name: "COLIN", birthYear: 2016 },
-            { name: "EMMA", birthYear: 2018 },
-            { name: "HANNAH", birthYear: 2024 }
+            { name: "kid 1", birthYear: 2014 },
+            { name: "kid 2", birthYear: 2016 },
+            { name: "kid 3", birthYear: 2018 },
+            { name: "kid 4", birthYear: 2024 }
         ]
     },
     burndown: {
@@ -115,7 +113,7 @@ export const PROFILE_45_COUPLE = {
         { name: 'Checking', type: 'Cash', value: 25000, costBasis: 25000 }
     ],
     stockOptions: [
-        { name: 'COMPANY RSU', shares: 4000, strikePrice: 1, currentPrice: 23, growth: 10, isLtcg: false }
+        { name: 'COMPANY RSU', shares: 2000, strikePrice: 1, currentPrice: 23, growth: 10, isLtcg: false }
     ],
     realEstate: [
         { name: 'Michigan Home', value: 550000, mortgage: 250000, principalPayment: 1400 }
@@ -172,7 +170,11 @@ export const PROFILE_45_COUPLE = {
     },
     burndown: {
         strategyMode: 'PLATINUM',
-        priority: ['cash', 'roth-basis', 'taxable', 'crypto', 'metals', 'heloc', '401k', 'hsa', 'roth-earnings']
+        priority: ['cash', 'roth-basis', 'taxable', 'crypto', 'metals', 'heloc', '401k', 'hsa', 'roth-earnings'],
+        cashReserve: 20000,
+        snapPreserve: 700,
+        useSync: true,
+        isRealDollars: false
     }
 };
 
@@ -231,7 +233,11 @@ export const PROFILE_25_SINGLE = {
     },
     burndown: {
         strategyMode: 'SILVER',
-        priority: ['cash', 'roth-basis', 'taxable', 'crypto', 'metals', 'heloc', '401k', 'hsa', 'roth-earnings']
+        priority: ['cash', 'roth-basis', 'taxable', 'crypto', 'metals', 'heloc', '401k', 'hsa', 'roth-earnings'],
+        cashReserve: 20000,
+        snapPreserve: 0,
+        useSync: true,
+        isRealDollars: false
     }
 };
 
@@ -283,6 +289,10 @@ export const PROFILE_55_RETIREE = {
     },
     burndown: {
         strategyMode: 'UNCONSTRAINED',
-        priority: ['cash', 'roth-basis', 'taxable', 'crypto', 'metals', 'heloc', '401k', 'hsa', 'roth-earnings']
+        priority: ['cash', 'roth-basis', 'taxable', 'crypto', 'metals', 'heloc', '401k', 'hsa', 'roth-earnings'],
+        cashReserve: 20000,
+        snapPreserve: 700,
+        useSync: true,
+        isRealDollars: false
     }
 };

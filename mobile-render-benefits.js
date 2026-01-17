@@ -280,13 +280,27 @@ export function renderAid(el) {
             </div>
             <div class="collapsible-content ${isQaOpen ? 'open' : ''}">
                 <div class="p-4 bg-black/20 space-y-3">
-                    <div>
-                        <h5 class="text-[10px] font-black text-teal-400 uppercase">MAGI (Modified Adjusted Gross Income)</h5>
-                        <p class="text-[10px] text-slate-400 leading-relaxed mt-1">Income used to determine eligibility for ACA subsidies and Medicaid.</p>
+                    <div class="mb-4">
+                         <h4 class="text-[10px] font-black text-blue-400 uppercase tracking-widest mb-3 flex items-center gap-2"><i class="fas fa-info-circle"></i> Benefit Modeling Logic</h4>
+                         <div class="space-y-3">
+                            <p class="text-[11px] text-slate-400 leading-relaxed">
+                                <strong class="text-white">Asset Test:</strong> This calculator ignores asset tests. Be aware that the following states typically enforce asset limits ($2,750 - $5,000) which may disqualify you if you have savings: <strong>TX, ID, IN, IA, KS, MS, MO, SD, TN, WY.</strong>
+                            </p>
+                            <p class="text-[11px] text-slate-400 leading-relaxed">
+                                <strong class="text-white">Birth Years:</strong> Dependents are modeled as independent at age 19. Birth years making a child 19 or older in the current year are excluded from the effective household size.
+                            </p>
+                         </div>
                     </div>
                     <div>
-                        <h5 class="text-[10px] font-black text-teal-400 uppercase">SUA (Standard Utility Allowance)</h5>
-                        <p class="text-[10px] text-slate-400 leading-relaxed mt-1">A fixed dollar amount deduction for household utility costs in SNAP.</p>
+                         <h4 class="text-[10px] font-black text-orange-400 uppercase tracking-widest mb-3 flex items-center gap-2"><i class="fas fa-shield-virus"></i> Medicaid Expansion Logic</h4>
+                         <div class="space-y-3">
+                            <p class="text-[11px] text-slate-400 leading-relaxed">
+                                <strong class="text-white">Expansion States:</strong> Cover adults up to 138% FPL ($0 cost). 
+                            </p>
+                            <p class="text-[11px] text-slate-400 leading-relaxed">
+                                <strong class="text-white">Non-Expansion:</strong> Adults under 100% FPL receive no ACA subsidy and no Medicaid. Recommend increasing MAGI to qualify for premium tax credits.
+                            </p>
+                         </div>
                     </div>
                 </div>
             </div>

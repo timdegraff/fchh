@@ -1,6 +1,7 @@
 
 import { math, engine, assetColors, stateTaxRates, STATE_NAME_TO_CODE } from './utils.js';
 import { simulateProjection } from './burndown-engine.js';
+import { calculateDieWithZero } from './burndown-dwz.js';
 import { renderCollapsible, renderStepperSlider } from './mobile-components.js';
 import { renderAssets, updateAssetChart } from './mobile-render-assets.js';
 import { renderAid, updateAidHeader, updateAidVisuals } from './mobile-render-benefits.js';
@@ -87,7 +88,9 @@ export function updateHeader() {
 
     updateHeaderContext();
 
-    // Toolbar Logic (Sticky Controls moved to Center Header)
+    // Center Controls Logic
+    if (center) center.innerHTML = '';
+    
     if (activeTab === 'budget') {
         if (center) {
             center.innerHTML = `
@@ -97,8 +100,21 @@ export function updateHeader() {
                 </div>
             `;
         }
-    } else {
-        if (center) center.innerHTML = '';
+    } else if (activeTab === 'fire') {
+        const d = window.currentData;
+        const retAge = d.assumptions?.retirementAge || 65;
+        if (center) {
+            center.innerHTML = `
+                <div class="flex flex-col items-center">
+                    <div class="text-[7px] font-bold text-slate-500 uppercase tracking-widest mb-0.5">Retirement Age</div>
+                    <div class="flex items-center gap-1.5 bg-slate-900/80 p-0.5 rounded-lg border border-white/10 shadow-xl">
+                        <button onclick="window.stepConfig('assumptions.retirementAge', -1)" class="w-6 h-6 flex items-center justify-center bg-white/5 rounded text-slate-400 hover:text-white hover:bg-white/10 transition-colors"><i class="fas fa-minus text-[8px]"></i></button>
+                        <span class="text-blue-400 font-black mono-numbers text-sm w-6 text-center">${retAge}</span>
+                        <button onclick="window.stepConfig('assumptions.retirementAge', 1)" class="w-6 h-6 flex items-center justify-center bg-white/5 rounded text-slate-400 hover:text-white hover:bg-white/10 transition-colors"><i class="fas fa-plus text-[8px]"></i></button>
+                    </div>
+                </div>
+            `;
+        }
     }
 
     requestAnimationFrame(() => {
@@ -442,13 +458,91 @@ export function renderConfig(el) {
 export function renderFire(el) {
     if (!window.currentData) return;
     const { collapsedSections } = getState();
-    const s = engine.calculateSummaries(window.currentData);
-    const results = simulateProjection(window.currentData, { 
-        strategyMode: window.currentData.burndown?.strategyMode || 'RAW',
+    const d = window.currentData;
+    const s = engine.calculateSummaries(d);
+    
+    // Config Extraction
+    const strategyMode = d.burndown?.strategyMode || 'RAW';
+    const snapPreserve = d.burndown?.snapPreserve || 0;
+    
+    const results = simulateProjection(d, { 
+        strategyMode: strategyMode,
         manualBudget: s.totalAnnualBudget,
         useSync: true,
         priority: ['cash', 'roth-basis', 'taxable', 'crypto', 'metals', 'heloc', '401k', 'hsa', 'roth-earnings']
     });
+
+    // Summary Card Calcs
+    const currentAge = parseFloat(d.assumptions.currentAge) || 40;
+    const insolvencyAge = results.firstInsolvencyAge;
+    const runway = insolvencyAge ? (insolvencyAge - currentAge) : null;
+    const presAge = insolvencyAge ? insolvencyAge : "100+";
+    const runVal = runway !== null ? `${runway} Yrs` : "Forever";
+    
+    // Only calculate DWZ if we are in Fire tab to save perf on other tabs, but here we are in renderFire so it is fine.
+    // However, DWZ is expensive. We can placeholder it or run it. Let's run it.
+    // To avoid circular dependency issues, we pass a dummy context or just call logic directly if possible.
+    // calculateDieWithZero takes (data, config, context).
+    const dwzVal = calculateDieWithZero(d, { 
+        strategyMode, 
+        cashReserve: d.burndown?.cashReserve || 0,
+        snapPreserve,
+        useSync: true
+    }, {}); 
+
+    // SECONDARY STICKY HEADER (Summary Cards)
+    // We inject this directly into the flow, but style it to stick below the main header
+    const stickyHeaderHtml = `
+        <div class="sticky top-[56px] z-30 bg-[#0B0F19]/95 backdrop-blur-md border-b border-white/5 px-2 py-3 mb-4 -mx-4">
+            <div class="grid grid-cols-3 gap-2 px-2">
+                <div class="bg-slate-900/50 rounded-xl border border-slate-800 p-2 flex flex-col items-center justify-center text-center">
+                    <i class="fas fa-shield-alt text-amber-500 text-[10px] mb-1"></i>
+                    <div class="text-[8px] font-bold text-slate-500 uppercase tracking-tight">Preserve</div>
+                    <div class="text-sm font-black text-amber-500 mono-numbers leading-none mt-0.5">${presAge}</div>
+                </div>
+                <div class="bg-slate-900/50 rounded-xl border border-slate-800 p-2 flex flex-col items-center justify-center text-center">
+                    <i class="fas fa-road text-blue-400 text-[10px] mb-1"></i>
+                    <div class="text-[8px] font-bold text-slate-500 uppercase tracking-tight">Runway</div>
+                    <div class="text-sm font-black text-blue-400 mono-numbers leading-none mt-0.5">${runVal}</div>
+                </div>
+                <div class="bg-slate-900/50 rounded-xl border border-slate-800 p-2 flex flex-col items-center justify-center text-center">
+                    <i class="fas fa-skull text-pink-400 text-[10px] mb-1"></i>
+                    <div class="text-[8px] font-bold text-slate-500 uppercase tracking-tight">DWZ</div>
+                    <div class="text-sm font-black text-pink-400 mono-numbers leading-none mt-0.5">${math.toSmartCompactCurrency(dwzVal)}</div>
+                </div>
+            </div>
+        </div>
+    `;
+
+    // Fire Controls (Engine + SNAP)
+    const controlsHtml = `
+        <div class="grid grid-cols-2 gap-3 mb-4">
+            <div class="bg-slate-900/30 rounded-xl border border-slate-800/50 p-2">
+                <label class="text-[8px] font-black text-slate-500 uppercase tracking-widest block mb-1.5 text-center">Engine</label>
+                <div class="grid grid-cols-2 gap-1 bg-black/40 rounded-lg p-1">
+                    <button onclick="window.stepConfig('burndown.strategyMode', 0); window.mobileState.tempMode='PLATINUM'; window.mobileAutoSave()" class="rounded py-1 text-[8px] font-black uppercase tracking-tight transition-all ${strategyMode === 'PLATINUM' ? 'bg-emerald-500/20 text-emerald-400 shadow-sm' : 'text-slate-500 hover:text-slate-300'}">
+                        Hunter
+                    </button>
+                    <button onclick="window.stepConfig('burndown.strategyMode', 0); window.mobileState.tempMode='RAW'; window.mobileAutoSave()" class="rounded py-1 text-[8px] font-black uppercase tracking-tight transition-all ${strategyMode === 'RAW' ? 'bg-blue-500/20 text-blue-400 shadow-sm' : 'text-slate-500 hover:text-slate-300'}">
+                        Iron Fist
+                    </button>
+                </div>
+                <!-- Hacky way to toggle mode: click handler sets global data directly in onclick or uses action -->
+                <!-- Better way: use a specific action. For now, inline JS to set property. -->
+                <script>
+                   // Inline handlers injected via onclick attribute above
+                </script>
+            </div>
+            
+            <div class="bg-slate-900/30 rounded-xl border border-slate-800/50 p-2 flex flex-col justify-between ${strategyMode === 'RAW' ? 'opacity-40 pointer-events-none' : ''}">
+                <div class="flex justify-between items-start mb-1">
+                    <label class="text-[8px] font-black text-emerald-500 uppercase tracking-widest">Food Aid</label>
+                    <span class="text-[9px] font-bold text-emerald-400 mono-numbers">${math.toCurrency(snapPreserve)}/mo</span>
+                </div>
+                <input type="range" data-path="burndown.snapPreserve" min="0" max="2000" step="100" value="${snapPreserve}" class="w-full h-1 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-emerald-500">
+            </div>
+        </div>
+    `;
 
     // Fire Table is raw HTML for now, could be componentized later if needed
     const fireTable = `
@@ -482,12 +576,25 @@ export function renderFire(el) {
     `;
 
     el.innerHTML = `
+        ${stickyHeaderHtml}
+        ${controlsHtml}
         ${fireTable}
         <div class="mt-8">
             ${renderCollapsible('trace', 'Logic Trace', traceContent, !collapsedSections['trace'])}
         </div>
     `;
     
+    // Re-attach event listeners for the mode toggle manually since we used inline JS for simplicity in the string
+    const modeBtns = el.querySelectorAll('button[onclick*="tempMode"]');
+    modeBtns.forEach(btn => {
+        btn.onclick = () => {
+            const mode = btn.innerText.includes('HUNTER') ? 'PLATINUM' : (btn.innerText.includes('IRON') ? 'RAW' : (btn.innerText.includes('Hunter') ? 'PLATINUM' : 'RAW'));
+            window.currentData.burndown.strategyMode = mode;
+            window.mobileAutoSave();
+            renderApp(); // Re-render to update UI state
+        };
+    });
+
     setTimeout(() => {
         const inp = document.getElementById('trace-year-input');
         if (inp) {

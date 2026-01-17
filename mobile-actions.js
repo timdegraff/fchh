@@ -140,6 +140,48 @@ window.stepConfig = (path, step) => {
     mobileAutoSave();
 };
 
+window.openCashSettings = (index) => {
+    haptic();
+    // We don't actually use the index for the data, as it's a global setting,
+    // but we use the context of 'accessing via this asset'.
+    const currentReserve = window.currentData.burndown?.cashReserve || 25000;
+    
+    const modal = document.getElementById('advanced-modal');
+    const content = document.getElementById('advanced-modal-content');
+    
+    content.innerHTML = `
+        <h4 class="text-xs font-bold text-slate-500 uppercase tracking-widest mb-4">Cash Strategy</h4>
+        
+        <div class="space-y-4">
+            <div class="p-4 bg-black/20 rounded-xl border border-white/5">
+                <div class="flex justify-between items-center mb-4">
+                    <span class="text-sm font-bold text-white">Emergency Fund Floor</span>
+                    <span class="text-sm font-black text-pink-400 mono-numbers">${math.toCurrency(currentReserve)}</span>
+                </div>
+                <input type="range" 
+                       min="0" max="100000" step="1000" 
+                       value="${currentReserve}" 
+                       oninput="window.updateCashReserve(this.value, this.previousElementSibling.lastElementChild)"
+                       class="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer">
+                <p class="text-[9px] text-slate-500 mt-2 leading-relaxed">
+                    The simulator will stop drawing from Cash once this floor is reached, forcing the sale of other assets instead.
+                </p>
+            </div>
+        </div>
+    `;
+    
+    modal.classList.remove('hidden');
+};
+
+window.updateCashReserve = (val, labelEl) => {
+    const v = parseInt(val);
+    if (!window.currentData.burndown) window.currentData.burndown = {};
+    window.currentData.burndown.cashReserve = v;
+    if (labelEl) labelEl.textContent = math.toCurrency(v);
+    mobileAutoSave();
+    // No need to re-render full app immediately, but good to ensure state is consistent on close
+};
+
 window.openAdvancedIncome = (index) => {
     haptic();
     const inc = window.currentData.income[index];
@@ -284,6 +326,9 @@ window.attachSwipeHandlers = () => {
             } else {
                 content.style.transform = 'translateX(0)';
                 window.mobileState.currentSwipeEl = null;
+                // Hide actions after transition to prevent bleed
+                const actions = el.querySelector('.swipe-actions');
+                if(actions) setTimeout(() => actions.style.visibility = 'hidden', 250);
             }
         });
     });

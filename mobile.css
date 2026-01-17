@@ -157,6 +157,7 @@ input:disabled {
     z-index: 0;
     border-radius: 12px;
     overflow: hidden;
+    visibility: hidden; /* Hide by default to prevent bleed */
 }
 .swipe-action-btn {
     display: flex;

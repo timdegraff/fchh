@@ -167,6 +167,24 @@ function attachListeners() {
         }
         ref[path[path.length - 1]] = val;
 
+        // Special Logic for Stock Options Equity Calculation
+        if (target.dataset.path.startsWith('stockOptions.')) {
+            const parts = target.dataset.path.split('.');
+            const index = parseInt(parts[1]);
+            if (!isNaN(index) && window.currentData.stockOptions[index]) {
+                const opt = window.currentData.stockOptions[index];
+                const shares = parseFloat(opt.shares) || 0;
+                const strike = math.fromCurrency(opt.strikePrice);
+                const fmv = math.fromCurrency(opt.currentPrice);
+                const equity = Math.max(0, (fmv - strike) * shares);
+                
+                const displayEl = document.getElementById(`equity-display-${index}`);
+                if (displayEl) displayEl.textContent = math.toSmartCompactCurrency(equity);
+                
+                updateAssetChart(window.currentData);
+            }
+        }
+
         window.mobileAutoSave?.();
         
         updateHeaderContext(); 

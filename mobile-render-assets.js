@@ -79,6 +79,7 @@ export function renderAssets(el) {
                 <div class="swipe-container">
                     <div class="swipe-actions">
                         ${sect.isOption ? `<button class="swipe-action-btn bg-slate-700" onclick="window.openAdvancedPE(${i})">Settings</button>` : ''}
+                        ${(sect.path === 'investments' && item.type === 'Cash') ? `<button class="swipe-action-btn bg-pink-600" onclick="window.openCashSettings(${i})">Reserve</button>` : ''}
                         <button class="swipe-action-btn bg-red-600" onclick="window.removeItem('${sect.path}', ${i})">Delete</button>
                     </div>
                     <div class="swipe-content p-3 border border-white/5 flex items-start gap-3">
@@ -88,7 +89,7 @@ export function renderAssets(el) {
                             <!-- Layout for Investments -->
                             <div class="flex-grow space-y-1 pt-0.5">
                                 <input data-path="${sect.path}.${i}.name" value="${item.name}" class="bg-transparent border-none p-0 text-[11px] font-bold text-white w-full placeholder:text-slate-600 focus:ring-0 uppercase tracking-tight">
-                                <select data-path="${sect.path}.${i}.type" class="bg-slate-900 border border-white/10 rounded-lg text-[9px] font-bold uppercase w-full p-1.5 ${typeClass}">
+                                <select data-path="${sect.path}.${i}.type" class="bg-slate-900 border border-white/10 rounded-lg text-[8px] font-bold uppercase w-full p-1.5 ${typeClass}">
                                     <option value="Taxable" ${item.type === 'Taxable' ? 'selected' : ''}>Taxable</option>
                                     <option value="Pre-Tax (401k/IRA)" ${item.type === 'Pre-Tax (401k/IRA)' ? 'selected' : ''}>Pre-Tax</option>
                                     <option value="Roth IRA" ${item.type === 'Roth IRA' ? 'selected' : ''}>Roth IRA</option>
@@ -129,7 +130,7 @@ export function renderAssets(el) {
                             <div class="text-right space-y-0.5 w-24 flex-shrink-0">
                                 ${sect.isOption ? `
                                     <div class="flex flex-col justify-center h-full pt-1">
-                                        <div class="text-orange-400 font-black text-sm mono-numbers">${math.toSmartCompactCurrency(Math.max(0, (math.fromCurrency(item.currentPrice) - math.fromCurrency(item.strikePrice)) * parseFloat(item.shares)))}</div>
+                                        <div id="equity-display-${i}" class="text-orange-400 font-black text-sm mono-numbers">${math.toSmartCompactCurrency(Math.max(0, (math.fromCurrency(item.currentPrice) - math.fromCurrency(item.strikePrice)) * parseFloat(item.shares)))}</div>
                                         <span class="text-[8px] font-bold text-slate-500 uppercase mt-1">Equity</span>
                                     </div>
                                 ` : `
@@ -150,7 +151,7 @@ export function renderAssets(el) {
                 </div>`;
             }).join('')}
             <button class="section-add-btn" onclick="window.addItem('${sect.path}')">
-                <i class="fas fa-plus"></i> + Add ${addBtnLabels[sect.title]}
+                <i class="fas fa-plus"></i> Add ${addBtnLabels[sect.title]}
             </button>
         `;
 
@@ -198,7 +199,7 @@ export function initAssetChart(data) {
             <div class="flex items-center gap-2 min-w-0">
                 <div class="w-1.5 h-1.5 rounded-full flex-shrink-0" style="background-color: ${colorMap[k]}"></div>
                 <span class="text-[9px] font-black uppercase truncate leading-none" style="color: ${colorMap[k]}">${label}</span>
-                <span class="text-[10px] font-bold text-white leading-tight mono-numbers ml-auto">${math.toSmartCompactCurrency(totals[k])}</span>
+                <span class="text-[10px] font-bold text-white leading-tight mono-numbers">${math.toSmartCompactCurrency(totals[k])}</span>
             </div>
         `}).join('');
     }
