@@ -1,5 +1,5 @@
 
-// v5.1.3 Fix Truncation
+// v5.1.4 Complete Fix
 import { math, engine, assetColors, stateTaxRates, STATE_NAME_TO_CODE } from './utils.js';
 import { simulateProjection } from './burndown-engine.js';
 import { calculateDieWithZero } from './burndown-dwz.js';
