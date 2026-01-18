@@ -122,6 +122,15 @@ window.toggleFireMode = () => {
     renderApp();
 };
 
+// Explicit handler for new UI buttons
+window.setBurndownMode = (mode) => {
+    haptic();
+    if (!window.currentData.burndown) window.currentData.burndown = {};
+    window.currentData.burndown.strategyMode = mode;
+    mobileAutoSave();
+    renderApp();
+};
+
 window.toggleSection = (id) => {
     haptic();
     window.mobileState.collapsedSections[id] = !window.mobileState.collapsedSections[id];
