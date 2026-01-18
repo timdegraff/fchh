@@ -224,7 +224,21 @@ export function updateHeaderContext() {
             </div>
         `;
     } else if (activeTab === 'fire') {
-        html = '<div id="fire-header-placeholder"></div>';
+        const d = window.currentData;
+        const mode = d.burndown?.strategyMode || 'RAW';
+        const isIronFist = mode === 'RAW';
+        
+        html = `
+            <div class="text-right cursor-pointer" onclick="window.toggleFireMode()">
+                <div class="flex items-center justify-end gap-1.5">
+                    <i class="fas fa-sync-alt text-[8px] opacity-50"></i>
+                    <i class="fas ${isIronFist ? 'fa-fist-raised text-slate-400' : 'fa-hand-holding-dollar text-emerald-400'} text-lg"></i>
+                </div>
+                <div class="text-[9px] font-bold text-slate-500 uppercase tracking-widest mt-0.5 flex flex-col items-end leading-none">
+                    ${isIronFist ? '<span>Iron Fist</span>' : '<span>Handout</span><span>Hunter</span>'}
+                </div>
+            </div>
+        `;
     } else if (activeTab === 'aid') {
         html = '<div id="aid-header-placeholder"></div>';
     }

@@ -78,7 +78,11 @@ window.openPriorityModal = () => {
     haptic();
     const modal = document.getElementById('priority-modal');
     if (modal) {
-        renderPriorityList(); // Ensure list is fresh
+        // Must re-import/call renderPriorityList to ensure it's up to date
+        // Note: mobile-render.js exports renderPriorityList which comes from mobile-render-fire.js
+        if (typeof renderPriorityList === 'function') {
+            renderPriorityList();
+        }
         modal.classList.remove('hidden');
     }
 };
@@ -97,7 +101,7 @@ window.movePriorityItem = (index, direction) => {
     list[newIndex] = temp;
     
     mobileAutoSave();
-    renderPriorityList(); // Update modal UI
+    if (typeof renderPriorityList === 'function') renderPriorityList(); // Update modal UI
     renderApp(); // Update background table
 };
 
@@ -113,22 +117,33 @@ window.toggleAssetHeaderMode = () => {
     renderApp();
 };
 
+// Updated toggle for Header Icon
 window.toggleFireMode = () => {
     haptic();
     if (!window.currentData.burndown) window.currentData.burndown = {};
     const current = window.currentData.burndown.strategyMode || 'RAW';
-    window.currentData.burndown.strategyMode = (current === 'RAW') ? 'PLATINUM' : 'RAW';
+    const next = current === 'RAW' ? 'PLATINUM' : 'RAW';
+    
+    window.currentData.burndown.strategyMode = next;
     mobileAutoSave();
-    renderApp();
+    
+    // Dynamic Re-render imports to avoid circular dependency issues at runtime
+    import('./mobile-render.js').then(m => {
+        m.updateHeader(); // Updates the icon
+        m.renderApp();    // Updates the table content
+    });
 };
 
-// Explicit handler for new UI buttons
+// Explicit handler for setting mode (if needed programmatically)
 window.setBurndownMode = (mode) => {
     haptic();
     if (!window.currentData.burndown) window.currentData.burndown = {};
     window.currentData.burndown.strategyMode = mode;
     mobileAutoSave();
-    renderApp();
+    import('./mobile-render.js').then(m => {
+        m.updateHeader();
+        m.renderApp();
+    });
 };
 
 window.toggleSection = (id) => {

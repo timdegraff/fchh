@@ -3,7 +3,7 @@ import { math, engine, assetColors } from './utils.js';
 import { simulateProjection } from './burndown-engine.js';
 import { calculateDieWithZero } from './burndown-dwz.js';
 import { renderTrace, assetMeta } from './burndown-render.js';
-import { renderCollapsible, renderStepperSlider } from './mobile-components.js';
+import { renderCollapsible } from './mobile-components.js';
 
 // Helper to access state
 const getState = () => window.mobileState;
@@ -14,20 +14,23 @@ export function renderFire(el) {
     const { collapsedSections } = getState();
     const s = engine.calculateSummaries(d);
     
-    // 1. Setup Configuration Defaults if missing
+    // 1. Setup Configuration Defaults
     if (!d.burndown) d.burndown = {};
     if (!d.burndown.priority) d.burndown.priority = ['cash', 'roth-basis', 'taxable', 'crypto', 'metals', 'heloc', '401k', 'hsa', 'roth-earnings'];
+    
+    // Default to 'RAW' (Iron Fist) unless explicitly set to PLATINUM
     const strategyMode = d.burndown.strategyMode || 'RAW';
-    const isIronFist = strategyMode === 'RAW';
 
     // 2. Run Simulation
+    // Hardcoding useSync: true for mobile simplicity as requested in refactor
+    // Default cashReserve to 25000 if slider is gone/undefined
     const results = simulateProjection(d, { 
         strategyMode: strategyMode,
-        manualBudget: s.totalAnnualBudget, // Or sync logic
+        manualBudget: s.totalAnnualBudget, 
         useSync: true,
         priority: d.burndown.priority,
-        cashReserve: d.burndown.cashReserve || 0,
-        snapPreserve: d.burndown.snapPreserve || 0
+        cashReserve: d.burndown.cashReserve || 25000, 
+        snapPreserve: d.burndown.snapPreserve || 0     
     });
 
     // 3. Calculate Hero Metrics
@@ -40,14 +43,14 @@ export function renderFire(el) {
     // Die With Zero Calc (Headless)
     const dwzVal = calculateDieWithZero(d, { 
         strategyMode, 
-        cashReserve: d.burndown.cashReserve || 0,
+        cashReserve: d.burndown.cashReserve || 25000,
         snapPreserve: d.burndown.snapPreserve || 0,
         useSync: true 
     }, {});
 
     // --- HTML GENERATION ---
 
-    // A. HERO CARDS
+    // A. HERO CARDS (Summary)
     const heroSection = `
         <div class="grid grid-cols-3 gap-2 mb-4">
             <div class="mobile-card !p-2 flex flex-col items-center justify-center text-center bg-amber-900/10 border-amber-500/20">
@@ -68,37 +71,17 @@ export function renderFire(el) {
         </div>
     `;
 
-    // B. STRATEGY CONTROLS
-    const strategyContent = `
-        <div class="grid grid-cols-2 gap-2 mb-4">
-            <button onclick="window.setBurndownMode('PLATINUM')" class="p-3 rounded-xl border flex flex-col items-center justify-center gap-1 transition-all ${!isIronFist ? 'bg-emerald-500/10 border-emerald-500 text-emerald-400 shadow-[0_0_15px_rgba(16,185,129,0.2)]' : 'bg-slate-800 border-white/5 text-slate-500 opacity-60'}">
-                <i class="fas fa-hand-holding-dollar text-xl"></i>
-                <span class="text-[9px] font-black uppercase tracking-widest">Handout Hunter</span>
-            </button>
-            <button onclick="window.setBurndownMode('RAW')" class="p-3 rounded-xl border flex flex-col items-center justify-center gap-1 transition-all ${isIronFist ? 'bg-slate-500/20 border-slate-400 text-slate-200 shadow-[0_0_15px_rgba(148,163,184,0.2)]' : 'bg-slate-800 border-white/5 text-slate-500 opacity-60'}">
-                <i class="fas fa-fist-raised text-xl"></i>
-                <span class="text-[9px] font-black uppercase tracking-widest">Iron Fist</span>
-            </button>
-        </div>
-        
-        ${!isIronFist ? `
-            <div class="bg-emerald-900/20 border border-emerald-500/20 p-3 rounded-xl mb-4">
-                ${renderStepperSlider('Food Aid Target', 'burndown.snapPreserve', 0, 2000, 50, d.burndown.snapPreserve || 0, '/mo', 'text-emerald-400')}
-            </div>
-        ` : ''}
-        
-        ${renderStepperSlider('Cash Safety Net', 'burndown.cashReserve', 0, 100000, 1000, d.burndown.cashReserve || 0, '', 'text-pink-400')}
-    `;
-
-    // C. THE DATA TABLE
+    // B. THE DATA TABLE (Sticky Column)
     const priorityOrder = d.burndown.priority;
+    
+    // Helper to render the asset columns
     const renderAssetCells = (r) => {
         return priorityOrder.map(k => {
             const meta = assetMeta[k];
             const draw = r.draws[k] || 0;
             const bal = r.balances[k] || 0;
             
-            // ACTIVE BURN CELL
+            // ACTIVE BURN CELL (Highlighted)
             if (draw > 50) {
                 const border = `border: 1px solid ${meta.color}60;`;
                 const bg = `background: linear-gradient(180deg, ${meta.color}20 0%, ${meta.color}05 100%);`;
@@ -115,10 +98,11 @@ export function renderFire(el) {
                         </div>
                     </td>`;
             } 
-            // DORMANT
+            // DORMANT (Show Balance)
             else if (bal > 100) {
                 return `<td class="p-1 align-middle text-center"><span class="text-[8px] font-bold text-slate-600">${math.toSmartCompactCurrency(bal)}</span></td>`;
             } 
+            // EMPTY (Dot)
             return `<td class="p-1 align-middle text-center"><span class="text-[8px] text-slate-800 font-bold">·</span></td>`;
         }).join('');
     };
@@ -159,7 +143,7 @@ export function renderFire(el) {
                                 </td>
                                 <td class="px-2 py-1.5 text-center">
                                     <span class="px-1.5 py-0.5 rounded text-[7px] font-black uppercase ${r.status === 'INSOLVENT' ? 'bg-red-500/20 text-red-400' : (r.status.includes('Platinum') ? 'bg-emerald-500/20 text-emerald-400' : 'bg-slate-700 text-slate-400')}">
-                                        ${r.status.substring(0,4)}
+                                        ${r.status.substring(0,8)}
                                     </span>
                                 </td>
                                 <td class="px-2 py-1.5 text-center font-bold text-teal-400">${math.toSmartCompactCurrency(r.floorGross)}</td>
@@ -177,15 +161,15 @@ export function renderFire(el) {
         </div>
     `;
 
-    // D. TRACE
+    // C. TRACE LOGIC
     const traceContent = `
         <div class="p-2 bg-black/20">
             <div class="flex items-center justify-between mb-4 bg-slate-900/50 p-2 rounded-xl border border-white/5">
                 <span class="text-[10px] font-bold text-slate-500 uppercase tracking-widest pl-2">Simulation Year</span>
                 <div class="flex items-center gap-1 bg-black/40 rounded-lg p-1">
-                    <button class="w-8 h-8 flex items-center justify-center bg-white/5 rounded-md text-slate-400 hover:text-white" onclick="const el=document.getElementById('trace-year-input'); el.stepDown(); el.dispatchEvent(new Event('input'))"><i class="fas fa-minus text-[10px]"></i></button>
+                    <button class="w-8 h-8 flex items-center justify-center bg-white/5 rounded-md text-slate-400 hover:text-white active:bg-white/10" onclick="const el=document.getElementById('trace-year-input'); el.stepDown(); el.dispatchEvent(new Event('input'))"><i class="fas fa-minus text-[10px]"></i></button>
                     <input type="number" id="trace-year-input" class="bg-transparent border-none text-blue-400 font-black text-lg w-16 text-center p-0 mono-numbers focus:ring-0" value="${new Date().getFullYear()}">
-                    <button class="w-8 h-8 flex items-center justify-center bg-white/5 rounded-md text-slate-400 hover:text-white" onclick="const el=document.getElementById('trace-year-input'); el.stepUp(); el.dispatchEvent(new Event('input'))"><i class="fas fa-plus text-[10px]"></i></button>
+                    <button class="w-8 h-8 flex items-center justify-center bg-white/5 rounded-md text-slate-400 hover:text-white active:bg-white/10" onclick="const el=document.getElementById('trace-year-input'); el.stepUp(); el.dispatchEvent(new Event('input'))"><i class="fas fa-plus text-[10px]"></i></button>
                 </div>
             </div>
             <div id="mobile-trace-output" class="space-y-4 text-xs"></div>
@@ -194,7 +178,6 @@ export function renderFire(el) {
 
     el.innerHTML = `
         ${heroSection}
-        ${renderCollapsible('fireSettings', 'Strategy & Settings', strategyContent, !collapsedSections['fireSettings'], 'fa-sliders-h', 'text-white')}
         ${fireTable}
         <div class="mt-8">
             ${renderCollapsible('trace', 'Logic Trace', traceContent, !collapsedSections['trace'], 'fa-terminal', 'text-slate-400')}
