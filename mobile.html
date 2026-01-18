@@ -147,6 +147,23 @@
         </div>
     </div>
 
+    <!-- Hero Detail Modal -->
+    <div id="hero-modal" class="fixed inset-0 bg-black/90 z-[200] hidden backdrop-blur-md flex items-center justify-center px-6">
+        <div id="hero-modal-card" class="p-8 rounded-3xl border w-full max-w-sm relative shadow-2xl transform transition-all scale-100 animate-slide-up">
+            <button onclick="document.getElementById('hero-modal').classList.add('hidden')" class="absolute top-4 right-4 text-white/50 hover:text-white w-8 h-8 flex items-center justify-center rounded-full bg-white/5">
+                <i class="fas fa-times"></i>
+            </button>
+            <div class="flex flex-col items-center text-center">
+                <div id="hero-modal-icon-bg" class="w-16 h-16 rounded-2xl flex items-center justify-center mb-6 border">
+                    <i id="hero-modal-icon" class="text-3xl"></i>
+                </div>
+                <h3 id="hero-modal-title" class="text-xs font-black uppercase tracking-widest mb-2">TITLE</h3>
+                <div id="hero-modal-value" class="text-5xl font-black mono-numbers tracking-tighter mb-6">VALUE</div>
+                <p id="hero-modal-desc" class="text-xs font-bold leading-relaxed opacity-80">Description goes here.</p>
+            </div>
+        </div>
+    </div>
+
     <!-- Main App Structure -->
     <div id="app-container" class="hidden flex flex-col h-full bg-[#0B0F19]">
         

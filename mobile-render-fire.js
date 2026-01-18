@@ -51,21 +51,22 @@ export function renderFire(el) {
     // --- HTML GENERATION ---
 
     // A. HERO CARDS (Summary)
+    // Updated: clickable divs calling window.openHeroModal
     const heroSection = `
-        <div class="grid grid-cols-3 gap-2 mb-4">
-            <div class="mobile-card !p-2 flex flex-col items-center justify-center text-center bg-amber-900/10 border-amber-500/20">
+        <div class="grid grid-cols-3 gap-2 mb-2">
+            <div onclick="window.openHeroModal('preservation', '${presAgeVal}')" class="mobile-card !p-2 flex flex-col items-center justify-center text-center bg-amber-900/10 border-amber-500/20 active:scale-95 transition-transform">
                 <i class="fas fa-shield-alt text-amber-500 text-lg mb-1"></i>
-                <div class="text-[7px] font-bold text-slate-500 uppercase tracking-widest">Preserve</div>
+                <div class="text-[7px] font-bold text-slate-500 uppercase tracking-widest">PRESERVATION</div>
                 <div class="text-xl font-black text-amber-500 mono-numbers leading-none mt-1">${presAgeVal}</div>
             </div>
-            <div class="mobile-card !p-2 flex flex-col items-center justify-center text-center bg-blue-900/10 border-blue-500/20">
+            <div onclick="window.openHeroModal('runway', '${runVal}')" class="mobile-card !p-2 flex flex-col items-center justify-center text-center bg-blue-900/10 border-blue-500/20 active:scale-95 transition-transform">
                 <i class="fas fa-road text-blue-400 text-lg mb-1"></i>
-                <div class="text-[7px] font-bold text-slate-500 uppercase tracking-widest">Runway</div>
+                <div class="text-[7px] font-bold text-slate-500 uppercase tracking-widest">RETIREMENT RUNWAY</div>
                 <div class="text-xl font-black text-blue-400 mono-numbers leading-none mt-1">${runVal}</div>
             </div>
-            <div class="mobile-card !p-2 flex flex-col items-center justify-center text-center bg-pink-900/10 border-pink-500/20">
+            <div onclick="window.openHeroModal('dwz', '${math.toSmartCompactCurrency(dwzVal)}')" class="mobile-card !p-2 flex flex-col items-center justify-center text-center bg-pink-900/10 border-pink-500/20 active:scale-95 transition-transform">
                 <i class="fas fa-skull text-pink-400 text-lg mb-1"></i>
-                <div class="text-[7px] font-bold text-slate-500 uppercase tracking-widest">Die w/ $0</div>
+                <div class="text-[7px] font-bold text-slate-500 uppercase tracking-widest">DIE W/ ZERO</div>
                 <div class="text-xl font-black text-pink-400 mono-numbers leading-none mt-1">${math.toSmartCompactCurrency(dwzVal)}</div>
             </div>
         </div>
@@ -88,12 +89,9 @@ export function renderFire(el) {
                 
                 return `
                     <td class="p-1 align-middle text-center">
-                        <div class="flex flex-col items-center justify-center py-1 px-1 rounded-lg min-w-[45px]" style="${border} ${bg}">
-                            <span class="text-[9px] font-black leading-none mb-0.5" style="color: ${meta.color}">
-                                -${math.toSmartCompactCurrency(draw)}
-                            </span>
-                            <span class="text-[7px] font-bold text-white/40 mono-numbers leading-none">
-                                ${math.toSmartCompactCurrency(bal)}
+                        <div class="flex flex-col items-center justify-center py-1.5 px-1 rounded-lg min-w-[45px]" style="${border} ${bg}">
+                            <span class="text-[10px] font-black leading-none" style="color: ${meta.color}">
+                                ${math.toSmartCompactCurrency(draw)}
                             </span>
                         </div>
                     </td>`;
@@ -116,14 +114,14 @@ export function renderFire(el) {
                             <th class="sticky left-0 bg-[#1e293b] z-20 px-2 py-2 text-center border-r border-white/10 shadow-lg">Age</th>
                             <th class="px-2 py-2 text-center">Budget</th>
                             <th class="px-2 py-2 text-center">Status</th>
-                            <th class="px-2 py-2 text-center text-teal-400">Inc</th>
-                            <th class="px-2 py-2 text-center text-emerald-500">Aid</th>
+                            <th class="px-2 py-2 text-center text-emerald-400">Inc</th>
+                            <th class="px-2 py-2 text-center text-amber-400">Aid</th>
+                            ${priorityOrder.map(k => `<th class="px-2 py-2 text-center text-[8px]" style="color:${assetMeta[k].color}">${assetMeta[k].short}</th>`).join('')}
                             <th class="px-2 py-2 text-center text-orange-400">Gap</th>
                             <th class="px-2 py-2 text-center text-white cursor-pointer bg-white/5" onclick="window.openPriorityModal()">
                                 <i class="fas fa-sort mr-1"></i> Draw
                             </th>
                             <th class="px-2 py-2 text-center text-red-400">Tax</th>
-                            ${priorityOrder.map(k => `<th class="px-2 py-2 text-center text-[8px]" style="color:${assetMeta[k].color}">${assetMeta[k].short}</th>`).join('')}
                             <th class="px-2 py-2 text-center text-teal-400">NW</th>
                         </tr>
                     </thead>
@@ -142,16 +140,16 @@ export function renderFire(el) {
                                     ${math.toSmartCompactCurrency(r.budget)}${helocSub}
                                 </td>
                                 <td class="px-2 py-1.5 text-center">
-                                    <span class="px-1.5 py-0.5 rounded text-[7px] font-black uppercase ${r.status === 'INSOLVENT' ? 'bg-red-500/20 text-red-400' : (r.status.includes('Platinum') ? 'bg-emerald-500/20 text-emerald-400' : 'bg-slate-700 text-slate-400')}">
+                                    <span class="px-1.5 py-0.5 rounded text-[7px] font-black uppercase ${r.status === 'INSOLVENT' ? 'bg-red-500/20 text-red-400' : (r.status.includes('Platinum') ? 'bg-emerald-500/20 text-emerald-400' : (r.status.includes('Silver') ? 'bg-blue-600/30 text-blue-100' : 'bg-slate-700 text-slate-400'))}">
                                         ${r.status.substring(0,8)}
                                     </span>
                                 </td>
-                                <td class="px-2 py-1.5 text-center font-bold text-teal-400">${math.toSmartCompactCurrency(r.floorGross)}</td>
-                                <td class="px-2 py-1.5 text-center font-bold text-emerald-500">${math.toSmartCompactCurrency(r.snap)}</td>
+                                <td class="px-2 py-1.5 text-center font-bold text-emerald-400">${math.toSmartCompactCurrency(r.floorGross)}</td>
+                                <td class="px-2 py-1.5 text-center font-bold text-amber-400">${math.toSmartCompactCurrency(r.snap)}</td>
+                                ${renderAssetCells(r)}
                                 <td class="px-2 py-1.5 text-center font-bold text-orange-400">${math.toSmartCompactCurrency(assetGap)}</td>
                                 <td class="px-2 py-1.5 text-center font-black text-white bg-white/5">${math.toSmartCompactCurrency(totalDraw)}</td>
                                 <td class="px-2 py-1.5 text-center font-bold text-red-400">${math.toSmartCompactCurrency(r.taxes)}</td>
-                                ${renderAssetCells(r)}
                                 <td class="px-2 py-1.5 text-center font-black text-teal-400 bg-teal-500/5">${math.toSmartCompactCurrency(r.netWorth)}</td>
                             </tr>
                         `}).join('')}

@@ -224,18 +224,14 @@ export function updateHeaderContext() {
             </div>
         `;
     } else if (activeTab === 'fire') {
-        const d = window.currentData;
-        const mode = d.burndown?.strategyMode || 'RAW';
-        const isIronFist = mode === 'RAW';
-        
+        // Disabled toggle per user request: Just show Iron Fist static
         html = `
-            <div class="text-right cursor-pointer" onclick="window.toggleFireMode()">
+            <div class="text-right">
                 <div class="flex items-center justify-end gap-1.5">
-                    <i class="fas fa-sync-alt text-[8px] opacity-50"></i>
-                    <i class="fas ${isIronFist ? 'fa-fist-raised text-slate-400' : 'fa-hand-holding-dollar text-emerald-400'} text-lg"></i>
+                    <i class="fas fa-fist-raised text-slate-400 text-lg"></i>
                 </div>
                 <div class="text-[9px] font-bold text-slate-500 uppercase tracking-widest mt-0.5 flex flex-col items-end leading-none">
-                    ${isIronFist ? '<span>Iron Fist</span>' : '<span>Handout</span><span>Hunter</span>'}
+                    <span>Iron Fist</span>
                 </div>
             </div>
         `;
@@ -321,7 +317,10 @@ function renderIncome(el) {
             </div>
             <div class="swipe-content mobile-card p-4 border border-white/5 !mb-0">
                 <div class="flex justify-between items-center mb-3">
-                    <input data-path="income.${i}.name" value="${inc.name}" class="bg-transparent border-none p-0 text-sm font-black text-white uppercase tracking-wider w-full focus:ring-0 placeholder:text-slate-600">
+                    <div class="flex items-center gap-2 flex-grow">
+                        <i class="fas fa-money-bill-wave text-teal-400 text-lg"></i>
+                        <input data-path="income.${i}.name" value="${inc.name}" class="bg-transparent border-none p-0 text-sm font-black text-white uppercase tracking-wider w-full focus:ring-0 placeholder:text-slate-600">
+                    </div>
                     <button class="text-[9px] font-bold ${inc.isMonthly ? 'text-blue-400 bg-blue-500/10' : 'text-slate-500 bg-slate-800'} uppercase px-2 py-1 rounded-md transition-colors" onclick="const d = window.currentData.income[${i}]; d.isMonthly = !d.isMonthly; d.amount = d.isMonthly ? d.amount / 12 : d.amount * 12; window.mobileAutoSave(); window.renderApp();">
                         ${inc.isMonthly ? 'Monthly' : 'Annual'}
                     </button>
@@ -479,8 +478,8 @@ function renderBudget(el) {
                 <div class="flex-grow space-y-1 pt-0.5">
                     <input data-path="budget.expenses.${i}.name" value="${item.name}" class="bg-transparent border-none p-0 text-[11px] font-bold text-white w-full placeholder:text-slate-600 focus:ring-0 uppercase tracking-tight">
                     <div class="flex gap-2">
-                        ${item.remainsInRetirement ? '<span class="text-[7px] font-bold text-blue-400 uppercase bg-blue-500/10 px-1 py-0.5 rounded">Retires</span>' : ''}
-                        ${item.isFixed ? '<span class="text-[7px] font-bold text-amber-400 uppercase bg-amber-500/10 px-1 py-0.5 rounded">Fixed</span>' : ''}
+                        ${item.remainsInRetirement ? '<span class="text-[7px] font-bold text-blue-400 uppercase bg-blue-500/10 px-1.5 py-0.5 rounded flex items-center gap-1">Retirement <i class="fas fa-check"></i></span>' : ''}
+                        ${item.isFixed ? '<span class="text-[7px] font-bold text-amber-400 uppercase bg-amber-500/10 px-1.5 py-0.5 rounded flex items-center gap-1">Fixed <i class="fas fa-check"></i></span>' : ''}
                     </div>
                 </div>
                 <div class="text-right w-28 flex-shrink-0">

@@ -43,7 +43,7 @@ export function renderAssets(el) {
 
     const sections = [
         { title: 'INVESTMENTS', icon: 'fa-chart-line', color: 'text-blue-400', data: d.investments, path: 'investments' },
-        { title: 'REAL ESTATE', icon: 'fa-home', color: 'text-indigo-400', data: d.realEstate, path: 'realEstate', fields: ['value', 'mortgage'] },
+        { title: 'REAL ESTATE', icon: 'fa-home', color: 'text-purple-400', data: d.realEstate, path: 'realEstate', fields: ['value', 'mortgage'] },
         { title: 'OTHER ASSETS', icon: 'fa-car', color: 'text-teal-400', data: d.otherAssets, path: 'otherAssets', fields: ['value', 'loan'] },
         { title: 'HELOCS', icon: 'fa-university', color: 'text-red-400', data: d.helocs, path: 'helocs', fields: ['balance', 'limit'] },
         { title: 'DEBTS', icon: 'fa-credit-card', color: 'text-pink-400', data: d.debts, path: 'debts', fields: ['balance'] },
@@ -71,8 +71,8 @@ export function renderAssets(el) {
         });
         
         // Custom Header Colors
-        let netColor = isDebt ? 'text-red-400' : 'text-emerald-400';
-        if (sect.isOption) netColor = 'text-orange-400'; // Override for Options
+        let netColor = isDebt ? 'text-red-400' : sect.color;
+        if (sect.isOption) netColor = 'text-orange-400'; 
         
         const prefix = isDebt ? '-' : '';
         const netDisplay = net !== 0 ? (isDebt ? math.toSmartCompactCurrency(-net) : math.toSmartCompactCurrency(net)) : '';
@@ -205,6 +205,9 @@ export function initAssetChart(data) {
     const reVal = data.realEstate?.reduce((s, r) => s + Math.max(0, math.fromCurrency(r.value) - math.fromCurrency(r.mortgage)), 0) || 0;
     if (reVal > 0) { totals['Real Estate'] = reVal; colorMap['Real Estate'] = assetColors['Real Estate']; }
     
+    const oaVal = data.otherAssets?.reduce((s, o) => s + Math.max(0, math.fromCurrency(o.value) - math.fromCurrency(o.loan)), 0) || 0;
+    if (oaVal > 0) { totals['Other Assets'] = oaVal; colorMap['Other Assets'] = assetColors['Other']; }
+    
     // Sort by value desc
     const sortedKeys = Object.keys(totals).sort((a,b) => totals[b] - totals[a]);
     const values = sortedKeys.map(k => totals[k]);
@@ -214,7 +217,7 @@ export function initAssetChart(data) {
     const legend = document.getElementById('assetLegend');
     if (legend) {
         legend.innerHTML = sortedKeys.map(k => {
-            const label = k === 'Stock Options' ? 'Options' : k.replace(/\(.*\)/, '').trim();
+            const label = k === 'Stock Options' ? 'Options' : (k === 'Other Assets' ? 'Other' : k.replace(/\(.*\)/, '').trim());
             return `
             <div class="flex items-center justify-between w-full">
                 <div class="flex items-center gap-2 min-w-0 overflow-hidden">

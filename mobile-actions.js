@@ -50,6 +50,71 @@ window.showWarning = showWarning;
 
 // --- GLOBAL UI ACTIONS ---
 
+window.openHeroModal = (type, value) => {
+    haptic();
+    const config = {
+        'preservation': {
+            title: 'PRESERVATION AGE',
+            desc: "The estimated age until which your portfolio remains solvent (above $0) given your current budget, asset growth, and withdrawal priority. '100+' means you are fully funded for life.",
+            icon: 'fa-shield-alt',
+            // Theme colors for: Card BG, Card Border, Icon Color, Text Color
+            bg: 'bg-amber-900/20',
+            border: 'border-amber-500/30',
+            text: 'text-amber-500',
+            iconBg: 'bg-amber-500/20',
+            iconBorder: 'border-amber-500/30'
+        },
+        'runway': {
+            title: 'RETIREMENT RUNWAY',
+            desc: "The number of years your portfolio can sustain your projected spending from today. This indicates how long your money lasts before hitting $0 if you stopped working now.",
+            icon: 'fa-road',
+            bg: 'bg-blue-900/20',
+            border: 'border-blue-500/30',
+            text: 'text-blue-400',
+            iconBg: 'bg-blue-500/20',
+            iconBorder: 'border-blue-500/30'
+        },
+        'dwz': {
+            title: 'DIE WITH ZERO',
+            desc: "The theoretical maximum annual budget you could spend starting at retirement to end with exactly $0 assets at age 100. This represents the upper limit of your safe spending capacity.",
+            icon: 'fa-skull',
+            bg: 'bg-pink-900/20',
+            border: 'border-pink-500/30',
+            text: 'text-pink-400',
+            iconBg: 'bg-pink-500/20',
+            iconBorder: 'border-pink-500/30'
+        }
+    };
+
+    const c = config[type];
+    if(!c) return;
+
+    const modal = document.getElementById('hero-modal');
+    const card = document.getElementById('hero-modal-card');
+    const icon = document.getElementById('hero-modal-icon');
+    const iconBg = document.getElementById('hero-modal-icon-bg');
+    const title = document.getElementById('hero-modal-title');
+    const valEl = document.getElementById('hero-modal-value');
+    const desc = document.getElementById('hero-modal-desc');
+
+    // Reset classes
+    card.className = `p-8 rounded-3xl border w-full max-w-sm relative shadow-2xl transform transition-all scale-100 animate-slide-up ${c.bg} ${c.border}`;
+    
+    icon.className = `fas ${c.icon} text-3xl ${c.text}`;
+    iconBg.className = `w-16 h-16 rounded-2xl flex items-center justify-center mb-6 border ${c.iconBg} ${c.iconBorder}`;
+    
+    title.className = `text-xs font-black uppercase tracking-widest mb-2 ${c.text} opacity-80`;
+    title.textContent = c.title;
+    
+    valEl.className = `text-5xl font-black mono-numbers tracking-tighter mb-6 ${c.text}`;
+    valEl.textContent = value;
+    
+    desc.className = `text-xs font-bold leading-relaxed ${c.text} opacity-80`;
+    desc.textContent = c.desc;
+
+    modal.classList.remove('hidden');
+};
+
 window.moveItem = (path, index, direction) => {
     haptic();
     let ref = window.currentData;

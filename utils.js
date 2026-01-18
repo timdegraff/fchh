@@ -1,5 +1,6 @@
 
 
+
 export const generateId = () => Date.now().toString(36) + Math.random().toString(36).substring(2);
 
 export const assetColors = {
@@ -15,8 +16,8 @@ export const assetColors = {
     'Roth Gains': '#9333ea',
     'Crypto': '#94a3b8',
     'Metals': '#eab308',
-    'Real Estate': '#6366f1',
-    'Other': '#64748b',
+    'Real Estate': '#a855f7',
+    'Other': '#2dd4bf',
     'HELOC': '#ef4444',
     'Debt': '#dc2626',
     'HSA': '#2dd4bf'
