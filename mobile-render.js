@@ -1,5 +1,5 @@
 
-// v5.1.2 Bump
+// v5.1.3 Fix Truncation
 import { math, engine, assetColors, stateTaxRates, STATE_NAME_TO_CODE } from './utils.js';
 import { simulateProjection } from './burndown-engine.js';
 import { calculateDieWithZero } from './burndown-dwz.js';
@@ -577,7 +577,195 @@ function renderConfig(el) {
     `;
 }
 
-// --- MISSING RENDER FUNCTIONS ---
-
 function renderIncome(el) {
-// ... existing renderIncome logic ...
+    const d = window.currentData;
+    const income = d.income || [];
+    
+    const html = income.map((inc, i) => {
+        return `
+        <div class="swipe-container">
+            <div class="swipe-actions">
+                <button class="swipe-action-btn bg-slate-700" onclick="window.openAdvancedIncome(${i})">Settings</button>
+                <button class="swipe-action-btn bg-red-600" onclick="window.removeItem('income', ${i})">Delete</button>
+            </div>
+            <div class="swipe-content mobile-card p-4 border border-white/5 !mb-0">
+                <div class="flex justify-between items-center mb-3">
+                    <input data-path="income.${i}.name" value="${inc.name}" class="bg-transparent border-none p-0 text-sm font-black text-white uppercase tracking-wider w-full focus:ring-0 placeholder:text-slate-600">
+                    <button class="text-[9px] font-bold ${inc.isMonthly ? 'text-blue-400 bg-blue-500/10' : 'text-slate-500 bg-slate-800'} uppercase px-2 py-1 rounded-md transition-colors" onclick="const d = window.currentData.income[${i}]; d.isMonthly = !d.isMonthly; d.amount = d.isMonthly ? d.amount / 12 : d.amount * 12; window.mobileAutoSave(); window.renderApp();">
+                        ${inc.isMonthly ? 'Monthly' : 'Annual'}
+                    </button>
+                </div>
+                
+                <div class="mb-4">
+                    <label class="text-[8px] font-bold text-slate-500 uppercase block mb-0.5">Gross Amount</label>
+                    <input data-path="income.${i}.amount" data-type="currency" inputmode="decimal" value="${math.toCurrency(inc.amount)}" class="bg-transparent border-none p-0 text-2xl font-black text-teal-400 w-full focus:ring-0 tracking-tight">
+                </div>
+
+                <div class="grid grid-cols-3 gap-3 pt-3 border-t border-white/5">
+                    <div>
+                        <label class="text-[7px] font-bold text-slate-500 uppercase block mb-1">Growth</label>
+                        <div class="flex items-center gap-1">
+                            <input data-path="income.${i}.increase" type="number" step="0.5" value="${inc.increase}" class="bg-slate-900 border border-white/10 rounded px-1 py-1 text-xs font-bold text-white w-full text-center focus:ring-0">
+                            <span class="text-[8px] text-slate-500 font-bold">%</span>
+                        </div>
+                    </div>
+                    <div>
+                        <label class="text-[7px] font-bold text-slate-500 uppercase block mb-1">401k</label>
+                        <div class="flex items-center gap-1">
+                            <input data-path="income.${i}.contribution" type="number" step="1" value="${inc.contribution}" class="bg-slate-900 border border-white/10 rounded px-1 py-1 text-xs font-bold text-blue-400 w-full text-center focus:ring-0">
+                            <span class="text-[8px] text-slate-500 font-bold">%</span>
+                        </div>
+                    </div>
+                    <div>
+                        <label class="text-[7px] font-bold text-slate-500 uppercase block mb-1">Match</label>
+                        <div class="flex items-center gap-1">
+                            <input data-path="income.${i}.match" type="number" step="1" value="${inc.match}" class="bg-slate-900 border border-white/10 rounded px-1 py-1 text-xs font-bold text-slate-300 w-full text-center focus:ring-0">
+                            <span class="text-[8px] text-slate-500 font-bold">%</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>`;
+    }).join('');
+
+    el.innerHTML = `
+        <div class="space-y-3">
+            ${html}
+            <button class="section-add-btn" onclick="window.addItem('income')">
+                <i class="fas fa-plus"></i> Add Income Stream
+            </button>
+        </div>
+    `;
+}
+
+function renderBudget(el) {
+    const d = window.currentData;
+    const { collapsedSections, budgetMode } = getState();
+    const isMonthly = budgetMode === 'monthly';
+    const factor = isMonthly ? 1/12 : 1;
+    
+    // Inject Computed 401k Row (Locked)
+    const summaries = engine.calculateSummaries(d);
+    const locked401k = {
+        type: 'Pre-Tax (401k/IRA)',
+        annual: summaries.total401kContribution,
+        isLocked: true,
+        remainsInRetirement: false
+    };
+    
+    // Virtual Savings List: [Locked, ...UserItems]
+    const savingsItems = [locked401k, ...(d.budget.savings || [])];
+    const expensesItems = d.budget.expenses || [];
+
+    // Helper to get asset color
+    const getTypeColor = (type) => {
+        const map = {
+            'Cash': 'text-type-cash', 'Taxable': 'text-type-taxable', 'Pre-Tax (401k/IRA)': 'text-type-pretax',
+            'Roth IRA': 'text-type-posttax', 'Crypto': 'text-type-crypto', 'Metals': 'text-type-metals', 'HSA': 'text-type-hsa'
+        };
+        return map[type] || 'text-slate-400';
+    };
+
+    const renderSavings = (items) => items.map((item, i) => {
+        // Locked row (index 0 in virtual list) vs User rows (index i-1 in real data)
+        const isLocked = !!item.isLocked;
+        const realIndex = i - 1; 
+        const val = item.annual * factor;
+        const path = isLocked ? '' : `budget.savings.${realIndex}.annual`;
+        const typeClass = getTypeColor(item.type);
+        
+        // Locked Row Rendering
+        if (isLocked) {
+            return `
+            <div class="swipe-container mb-2 opacity-80">
+                <div class="swipe-actions"></div> <!-- No actions for locked row -->
+                <div class="swipe-content p-3 border border-white/5 flex items-center gap-3">
+                    <div class="flex-grow space-y-1 pt-0.5">
+                        <div class="text-[11px] font-bold text-slate-500 uppercase tracking-tight">401k From Income</div>
+                        <div class="flex items-center gap-2">
+                            <div class="w-2 h-2 rounded-full bg-blue-500"></div>
+                            <span class="text-[8px] font-bold text-blue-400 uppercase">Pre-Tax</span>
+                        </div>
+                    </div>
+                    <div class="text-right w-28 flex-shrink-0">
+                        <div class="text-sm font-black text-right text-emerald-400 w-full mono-numbers opacity-50">${math.toCurrency(val)}</div>
+                        <div class="text-[7px] text-slate-600 font-bold uppercase tracking-wider mt-0.5">Auto-Calculated</div>
+                    </div>
+                </div>
+            </div>`;
+        }
+
+        // User Row Rendering
+        return `
+        <div class="swipe-container mb-2">
+            <div class="swipe-actions">
+                <button class="swipe-action-btn ${item.remainsInRetirement ? 'bg-emerald-600' : 'bg-slate-700'}" onclick="window.toggleSavingsRetirement(${realIndex})">
+                    ${item.remainsInRetirement ? 'Retires: YES' : 'Retires: NO'}
+                </button>
+                <button class="swipe-action-btn bg-red-600" onclick="window.removeItem('budget.savings', ${realIndex})">Delete</button>
+            </div>
+            <div class="swipe-content p-3 border border-white/5 flex items-center gap-3">
+                <div class="flex-grow space-y-1 pt-0.5">
+                    <select data-path="budget.savings.${realIndex}.type" class="bg-slate-900 border border-white/10 rounded-lg text-[10px] font-bold w-full p-1.5 ${typeClass}">
+                        <option value="Taxable" ${item.type === 'Taxable' ? 'selected' : ''}>Taxable</option>
+                        <option value="Pre-Tax (401k/IRA)" ${item.type === 'Pre-Tax (401k/IRA)' ? 'selected' : ''}>Pre-Tax</option>
+                        <option value="Roth IRA" ${item.type === 'Roth IRA' ? 'selected' : ''}>Roth IRA</option>
+                        <option value="Cash" ${item.type === 'Cash' ? 'selected' : ''}>Cash</option>
+                        <option value="Crypto" ${item.type === 'Crypto' ? 'selected' : ''}>Crypto</option>
+                        <option value="Metals" ${item.type === 'Metals' ? 'selected' : ''}>Metals</option>
+                        <option value="HSA" ${item.type === 'HSA' ? 'selected' : ''}>HSA</option>
+                    </select>
+                </div>
+                <div class="text-right w-28 flex-shrink-0">
+                    <input data-path="${path}" data-type="currency" inputmode="decimal" value="${math.toCurrency(val)}" class="bg-transparent border-none p-0 text-sm font-black text-right text-emerald-400 w-full focus:ring-0">
+                </div>
+            </div>
+        </div>`;
+    }).join('');
+
+    const renderExpenses = (items) => items.map((item, i) => {
+        const val = item.annual * factor;
+        const path = `budget.expenses.${i}.annual`;
+        
+        return `
+        <div class="swipe-container mb-2">
+            <div class="swipe-actions">
+                <button class="swipe-action-btn bg-slate-700" onclick="window.openAdvancedExpense(${i})">Settings</button>
+                <button class="swipe-action-btn bg-red-600" onclick="window.removeItem('budget.expenses', ${i})">Delete</button>
+            </div>
+            <div class="swipe-content p-3 border border-white/5 flex items-center gap-3">
+                <div class="flex-grow space-y-1 pt-0.5">
+                    <input data-path="budget.expenses.${i}.name" value="${item.name}" class="bg-transparent border-none p-0 text-[11px] font-bold text-white w-full placeholder:text-slate-600 focus:ring-0 uppercase tracking-tight">
+                    <div class="flex gap-2">
+                        ${item.remainsInRetirement ? '<span class="text-[7px] font-bold text-blue-400 uppercase bg-blue-500/10 px-1 py-0.5 rounded">Retires</span>' : ''}
+                        ${item.isFixed ? '<span class="text-[7px] font-bold text-amber-400 uppercase bg-amber-500/10 px-1 py-0.5 rounded">Fixed</span>' : ''}
+                    </div>
+                </div>
+                <div class="text-right w-28 flex-shrink-0">
+                    <input data-path="${path}" data-type="currency" inputmode="decimal" value="${math.toCurrency(val)}" class="bg-transparent border-none p-0 text-sm font-black text-right text-pink-400 w-full focus:ring-0">
+                </div>
+            </div>
+        </div>`;
+    }).join('');
+
+    const savingsHtml = `
+        ${renderSavings(savingsItems)}
+        <button class="section-add-btn" onclick="window.addItem('budget.savings')"><i class="fas fa-plus"></i> Add Savings Goal</button>
+    `;
+    
+    const expensesHtml = `
+        ${renderExpenses(expensesItems)}
+        <button class="section-add-btn" onclick="window.addItem('budget.expenses')"><i class="fas fa-plus"></i> Add Expense</button>
+    `;
+
+    // Totals for Headers
+    const totalSave = savingsItems.reduce((acc, i) => acc + (i.annual * factor), 0);
+    const totalSpend = expensesItems.reduce((acc, i) => acc + (i.annual * factor), 0);
+
+    el.innerHTML = `
+        <div class="space-y-4">
+            ${renderCollapsible('savings', 'Savings Targets', savingsHtml, !collapsedSections['savings'], 'fa-piggy-bank', 'text-emerald-400', math.toSmartCompactCurrency(totalSave))}
+            ${renderCollapsible('expenses', 'Living Expenses', expensesHtml, !collapsedSections['expenses'], 'fa-credit-card', 'text-pink-400', math.toSmartCompactCurrency(totalSpend))}
+        </div>
+    `;
+}
