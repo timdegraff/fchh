@@ -185,7 +185,7 @@ export function renderFire(el) {
         ${heroSection}
         ${fireTable}
         <div class="mt-8">
-            ${renderCollapsible('trace', 'Logic Trace', traceContent, !collapsedSections['trace'], 'fa-terminal', 'text-slate-400')}
+            ${renderCollapsible('trace', 'Logic Trace', traceContent, !collapsedSections['trace'], 'fa-terminal', 'text-blue-400')}
         </div>
     `;
     
