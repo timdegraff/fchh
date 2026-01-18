@@ -87,6 +87,8 @@ export function updateHeader() {
     
     if (activeTab === 'budget') {
         if (center) {
+            // Nudge center slightly right for budget to center it visually
+            center.className = "absolute left-1/2 top-1/2 -translate-y-1/2 -translate-x-1/2 z-0";
             center.innerHTML = `
                 <div class="flex bg-slate-900/90 p-0.5 rounded-lg border border-white/10 shadow-xl">
                     <button onclick="window.setBudgetMode('monthly')" class="px-3 py-1.5 rounded-md text-[9px] font-bold uppercase transition-all ${budgetMode === 'monthly' ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-500 hover:text-white'}">Monthly</button>
@@ -98,6 +100,8 @@ export function updateHeader() {
         const d = window.currentData;
         const retAge = d.assumptions?.retirementAge || 65;
         if (center) {
+            // Shift center significantly left to make room for right-side complex controls
+            center.className = "absolute left-[45%] top-1/2 -translate-y-1/2 -translate-x-1/2 z-0";
             center.innerHTML = `
                 <div class="flex flex-col items-center">
                     <div class="text-[7px] font-bold text-slate-500 uppercase tracking-widest mb-0.5">Retirement Age</div>
@@ -224,14 +228,32 @@ export function updateHeaderContext() {
             </div>
         `;
     } else if (activeTab === 'fire') {
-        // Disabled toggle per user request: Just show Iron Fist static
+        const mode = window.currentData?.burndown?.strategyMode || 'RAW';
+        const isReal = !!window.currentData?.burndown?.isRealDollars;
+        
+        let icon, label, color;
+        
+        if (mode === 'PREMIUM') {
+            icon = 'fa-gem'; label = 'Premium'; color = 'text-cyan-400';
+        } else if (mode === 'PLATINUM') {
+            icon = 'fa-hand-holding-dollar'; label = 'Handout'; color = 'text-emerald-400';
+        } else {
+            // RAW / Default (Iron Fist)
+            icon = 'fa-fist-raised'; label = 'Iron Fist'; color = 'text-slate-400';
+        }
+
         html = `
-            <div class="text-right">
-                <div class="flex items-center justify-end gap-1.5">
-                    <i class="fas fa-fist-raised text-slate-400 text-lg"></i>
-                </div>
-                <div class="text-[9px] font-bold text-slate-500 uppercase tracking-widest mt-0.5 flex flex-col items-end leading-none">
-                    <span>Iron Fist</span>
+            <div class="flex items-center gap-3">
+                <button onclick="window.toggleRealDollars()" class="w-8 h-8 rounded-full flex items-center justify-center border font-black text-xs transition-colors ${isReal ? 'bg-blue-600 border-blue-500 text-white' : 'bg-slate-800 border-slate-700 text-slate-500 hover:text-white'}">
+                    $
+                </button>
+                <div class="text-right cursor-pointer pl-1 border-l border-white/10" onclick="window.toggleFireMode()">
+                    <div class="flex items-center justify-end gap-1.5">
+                        <i class="fas ${icon} ${color} text-lg shadow-lg"></i>
+                    </div>
+                    <div class="text-[9px] font-bold ${color} uppercase tracking-widest mt-0.5 flex flex-col items-end leading-none">
+                        <span>${label}</span>
+                    </div>
                 </div>
             </div>
         `;
@@ -243,6 +265,7 @@ export function updateHeaderContext() {
     if (activeTab === 'aid') updateAidHeader();
 }
 
+// ... rest of the file (renderConfig, renderIncome, etc.)
 function renderConfig(el) {
     const a = window.currentData.assumptions;
     const { collapsedSections } = getState();

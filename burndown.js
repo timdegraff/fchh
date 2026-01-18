@@ -1,3 +1,4 @@
+
 /**
  * Burndown Controller v5.0.0 (Modular)
  */
@@ -124,14 +125,18 @@ export const burndown = {
                     <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
                          <div class="bg-slate-900/30 rounded-xl border border-slate-800/50 p-3 flex flex-col justify-center h-28">
                             <label class="text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Burn Down Engines</label>
-                            <div id="persona-selector" class="grid grid-cols-2 gap-1 p-1 bg-black/40 rounded-lg border border-white/5 h-full">
+                            <div id="persona-selector" class="grid grid-cols-3 gap-1 p-1 bg-black/40 rounded-lg border border-white/5 h-full">
                                 <button data-mode="PLATINUM" class="rounded-md text-[10px] font-black uppercase tracking-tight transition-all flex flex-col items-center justify-center border border-transparent hover:bg-emerald-500/5">
-                                    <span class="text-emerald-400 text-xs font-black">HANDOUT HUNTER</span>
-                                    <span class="text-[6.5px] opacity-40 leading-none mt-1 uppercase text-center">aggressive aid maximization</span>
+                                    <span class="text-emerald-400 text-xs font-black">HANDOUT</span>
+                                    <span class="text-[6.5px] opacity-40 leading-none mt-1 uppercase text-center">aid max</span>
                                 </button>
                                 <button data-mode="RAW" class="rounded-md text-[10px] font-black uppercase tracking-tight transition-all flex flex-col items-center justify-center border border-transparent hover:bg-slate-500/5">
                                     <span class="text-slate-400 text-xs font-black">IRON FIST</span>
-                                    <span class="text-[6.5px] opacity-40 leading-none mt-1 uppercase text-center">strict priority burn</span>
+                                    <span class="text-[6.5px] opacity-40 leading-none mt-1 uppercase text-center">strict burn</span>
+                                </button>
+                                <button data-mode="PREMIUM" class="rounded-md text-[10px] font-black uppercase tracking-tight transition-all flex flex-col items-center justify-center border border-transparent hover:bg-cyan-500/5">
+                                    <span class="text-cyan-400 text-xs font-black">PREMIUM</span>
+                                    <span class="text-[6.5px] opacity-40 leading-none mt-1 uppercase text-center">unrestricted</span>
                                 </button>
                             </div>
                         </div>
@@ -254,12 +259,16 @@ export const burndown = {
         if (!personaContainer) return;
         
         personaContainer.querySelectorAll('button').forEach(b => {
-            b.classList.remove('bg-emerald-500/10', 'border-emerald-500/30', 'bg-slate-500/10', 'border-slate-500/30');
+            b.classList.remove('bg-emerald-500/10', 'border-emerald-500/30', 'bg-slate-500/10', 'border-slate-500/30', 'bg-cyan-500/10', 'border-cyan-500/30');
         });
         
         const btn = personaContainer.querySelector(`[data-mode="${mode}"]`);
         if (btn) {
-            const styleMap = { 'PLATINUM': 'bg-emerald-500/10 border-emerald-500/30', 'RAW': 'bg-slate-500/10 border-slate-500/30' };
+            const styleMap = { 
+                'PLATINUM': 'bg-emerald-500/10 border-emerald-500/30', 
+                'RAW': 'bg-slate-500/10 border-slate-500/30',
+                'PREMIUM': 'bg-cyan-500/10 border-cyan-500/30'
+            };
             btn.classList.add(...styleMap[mode].split(' '));
         }
         
@@ -267,12 +276,26 @@ export const burndown = {
 
         const snapWrapper = document.getElementById('card-snap-wrapper');
         if (snapWrapper) {
-            snapWrapper.classList.toggle('opacity-20', mode === 'RAW');
-            snapWrapper.classList.toggle('pointer-events-none', mode === 'RAW');
+            // Only RAW (Iron Fist) disables SNAP/Aid features visually if desired?
+            // Actually Handout Hunter (Platinum) enables it. Iron Fist disables. Premium should enable everything? 
+            // "Premium will be an upgraded version... same features that iron fist has currently"
+            // Iron Fist currently DISAABLES SNAP preserve. So Premium should too? 
+            // "But for Iron Fist ill remove some features...". This implies Premium is superior.
+            // Let's enable SNAP for Premium to be safe, or follow Iron Fist logic (disabled).
+            // Iron Fist logic is: snapWrapper opacity-20.
+            
+            // Let's assume Premium is the "Good" version, so maybe enable features? 
+            // But strict Iron Fist logic doesn't use SNAP preservation as a goal.
+            // I'll keep it disabled for PREMIUM to match Iron Fist exactly for now.
+            const isRestricted = mode === 'RAW' || mode === 'PREMIUM';
+            snapWrapper.classList.toggle('opacity-20', isRestricted);
+            snapWrapper.classList.toggle('pointer-events-none', isRestricted);
         }
         
         const priorityWrapper = document.getElementById('priority-list-wrapper');
         if (priorityWrapper) {
+            // Platinum hides/disables priority because it uses internal logic?
+            // Iron Fist (RAW) uses Priority. Premium should too.
             priorityWrapper.classList.toggle('opacity-40', mode === 'PLATINUM');
             priorityWrapper.classList.toggle('pointer-events-none', mode === 'PLATINUM');
         }

@@ -18,12 +18,14 @@ export function renderFire(el) {
     if (!d.burndown) d.burndown = {};
     if (!d.burndown.priority) d.burndown.priority = ['cash', 'roth-basis', 'taxable', 'crypto', 'metals', 'heloc', '401k', 'hsa', 'roth-earnings'];
     
-    // Default to 'RAW' (Iron Fist) unless explicitly set to PLATINUM
     const strategyMode = d.burndown.strategyMode || 'RAW';
+    // Is Premium/Platinum? (Not Iron Fist)
+    const isPremium = strategyMode !== 'RAW';
+    // Is Real Dollars?
+    const isReal = !!d.burndown.isRealDollars;
+    const inflationRate = (d.assumptions.inflation || 3) / 100;
 
     // 2. Run Simulation
-    // Hardcoding useSync: true for mobile simplicity as requested in refactor
-    // Default cashReserve to 25000 if slider is gone/undefined
     const results = simulateProjection(d, { 
         strategyMode: strategyMode,
         manualBudget: s.totalAnnualBudget, 
@@ -33,54 +35,71 @@ export function renderFire(el) {
         snapPreserve: d.burndown.snapPreserve || 0     
     });
 
-    // 3. Calculate Hero Metrics
-    const currentAge = parseFloat(d.assumptions.currentAge) || 40;
-    const insolvencyAge = results.firstInsolvencyAge;
-    const runway = insolvencyAge ? (insolvencyAge - currentAge) : null;
-    const presAgeVal = insolvencyAge ? insolvencyAge : "100+";
-    const runVal = runway !== null ? `${runway} Yrs` : "Forever";
-    
-    // Die With Zero Calc (Headless)
-    const dwzVal = calculateDieWithZero(d, { 
-        strategyMode, 
-        cashReserve: d.burndown.cashReserve || 25000,
-        snapPreserve: d.burndown.snapPreserve || 0,
-        useSync: true 
-    }, {});
+    // 3. Calculate Hero Metrics (Only if Premium)
+    let heroSection = '';
+    if (isPremium) {
+        const currentAge = parseFloat(d.assumptions.currentAge) || 40;
+        const insolvencyAge = results.firstInsolvencyAge;
+        const runway = insolvencyAge ? (insolvencyAge - currentAge) : null;
+        const presAgeVal = insolvencyAge ? insolvencyAge : "100+";
+        const runVal = runway !== null ? `${runway} Yrs` : "Forever";
+        
+        // Die With Zero Calc (Headless)
+        const dwzVal = calculateDieWithZero(d, { 
+            strategyMode, 
+            cashReserve: d.burndown.cashReserve || 25000,
+            snapPreserve: d.burndown.snapPreserve || 0,
+            useSync: true 
+        }, {});
 
-    // --- HTML GENERATION ---
-
-    // A. HERO CARDS (Summary)
-    // Updated: clickable divs calling window.openHeroModal
-    const heroSection = `
-        <div class="grid grid-cols-3 gap-2 mb-2">
-            <div onclick="window.openHeroModal('preservation', '${presAgeVal}')" class="mobile-card !p-2 flex flex-col items-center justify-center text-center bg-amber-900/10 border-amber-500/20 active:scale-95 transition-transform">
-                <i class="fas fa-shield-alt text-amber-500 text-lg mb-1"></i>
-                <div class="text-[7px] font-bold text-slate-500 uppercase tracking-widest">PRESERVATION</div>
-                <div class="text-xl font-black text-amber-500 mono-numbers leading-none mt-1">${presAgeVal}</div>
+        heroSection = `
+            <div class="grid grid-cols-3 gap-2 mb-2">
+                <div onclick="window.openHeroModal('preservation', '${presAgeVal}')" class="mobile-card !p-2 flex flex-col items-center justify-center text-center bg-amber-900/10 border-amber-500/20 active:scale-95 transition-transform">
+                    <i class="fas fa-shield-alt text-amber-500 text-lg mb-1"></i>
+                    <div class="text-[7px] font-bold text-slate-500 uppercase tracking-widest">PRESERVATION</div>
+                    <div class="text-xl font-black text-amber-500 mono-numbers leading-none mt-1">${presAgeVal}</div>
+                </div>
+                <div onclick="window.openHeroModal('runway', '${runVal}')" class="mobile-card !p-2 flex flex-col items-center justify-center text-center bg-blue-900/10 border-blue-500/20 active:scale-95 transition-transform">
+                    <i class="fas fa-road text-blue-400 text-lg mb-1"></i>
+                    <div class="text-[7px] font-bold text-slate-500 uppercase tracking-widest">RETIREMENT RUNWAY</div>
+                    <div class="text-xl font-black text-blue-400 mono-numbers leading-none mt-1">${runVal}</div>
+                </div>
+                <div onclick="window.openHeroModal('dwz', '${math.toSmartCompactCurrency(dwzVal)}')" class="mobile-card !p-2 flex flex-col items-center justify-center text-center bg-pink-900/10 border-pink-500/20 active:scale-95 transition-transform">
+                    <i class="fas fa-skull text-pink-400 text-lg mb-1"></i>
+                    <div class="text-[7px] font-bold text-slate-500 uppercase tracking-widest">DIE W/ ZERO</div>
+                    <div class="text-xl font-black text-pink-400 mono-numbers leading-none mt-1">${math.toSmartCompactCurrency(dwzVal)}</div>
+                </div>
             </div>
-            <div onclick="window.openHeroModal('runway', '${runVal}')" class="mobile-card !p-2 flex flex-col items-center justify-center text-center bg-blue-900/10 border-blue-500/20 active:scale-95 transition-transform">
-                <i class="fas fa-road text-blue-400 text-lg mb-1"></i>
-                <div class="text-[7px] font-bold text-slate-500 uppercase tracking-widest">RETIREMENT RUNWAY</div>
-                <div class="text-xl font-black text-blue-400 mono-numbers leading-none mt-1">${runVal}</div>
-            </div>
-            <div onclick="window.openHeroModal('dwz', '${math.toSmartCompactCurrency(dwzVal)}')" class="mobile-card !p-2 flex flex-col items-center justify-center text-center bg-pink-900/10 border-pink-500/20 active:scale-95 transition-transform">
-                <i class="fas fa-skull text-pink-400 text-lg mb-1"></i>
-                <div class="text-[7px] font-bold text-slate-500 uppercase tracking-widest">DIE W/ ZERO</div>
-                <div class="text-xl font-black text-pink-400 mono-numbers leading-none mt-1">${math.toSmartCompactCurrency(dwzVal)}</div>
-            </div>
-        </div>
-    `;
+        `;
+    }
 
     // B. THE DATA TABLE (Sticky Column)
     const priorityOrder = d.burndown.priority;
     
+    // Formatting Helper for Real vs Nominal
+    const fmt = (val, idx) => {
+        if (val === undefined || val === null) return '$0';
+        let v = val;
+        if (isReal) {
+            const factor = Math.pow(1 + inflationRate, idx);
+            v = val / factor;
+        }
+        return math.toSmartCompactCurrency(v);
+    };
+
     // Helper to render the asset columns
-    const renderAssetCells = (r) => {
+    const renderAssetCells = (r, idx) => {
         return priorityOrder.map(k => {
             const meta = assetMeta[k];
-            const draw = r.draws[k] || 0;
-            const bal = r.balances[k] || 0;
+            let draw = r.draws[k] || 0;
+            let bal = r.balances[k] || 0;
+            
+            // Adjust for Real $
+            if (isReal) {
+                const factor = Math.pow(1 + inflationRate, idx);
+                draw /= factor;
+                bal /= factor;
+            }
             
             // ACTIVE BURN CELL (Highlighted)
             if (draw > 50) {
@@ -106,6 +125,9 @@ export function renderFire(el) {
     };
 
     const fireTable = `
+        <div onclick="window.openPriorityModal()" class="py-2 bg-slate-800/50 border-y border-white/5 text-center text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-2 cursor-pointer active:bg-slate-700/50 active:text-white transition-colors">
+            <i class="fas fa-sort mr-2"></i> Tap to set draw priority
+        </div>
         <div class="mobile-card p-0 overflow-hidden bg-[#0B0F19] border border-white/10">
             <div class="overflow-x-auto relative">
                 <table class="fire-table w-full whitespace-nowrap">
@@ -113,25 +135,33 @@ export function renderFire(el) {
                         <tr>
                             <th class="sticky left-0 bg-[#1e293b] z-20 px-2 py-2 text-center border-r border-white/10 shadow-lg">Age</th>
                             <th class="px-2 py-2 text-center">Budget</th>
-                            <th class="px-2 py-2 text-center">Status</th>
+                            ${isPremium ? '<th class="px-2 py-2 text-center">Health</th>' : ''}
                             <th class="px-2 py-2 text-center text-emerald-400">Inc</th>
-                            <th class="px-2 py-2 text-center text-amber-400">Aid</th>
+                            ${isPremium ? '<th class="px-2 py-2 text-center text-amber-400">Aid</th>' : ''}
                             ${priorityOrder.map(k => `<th class="px-2 py-2 text-center text-[8px]" style="color:${assetMeta[k].color}">${assetMeta[k].short}</th>`).join('')}
                             <th class="px-2 py-2 text-center text-orange-400">Gap</th>
-                            <th class="px-2 py-2 text-center text-white cursor-pointer bg-white/5" onclick="window.openPriorityModal()">
-                                <i class="fas fa-sort mr-1"></i> Draw
-                            </th>
+                            <th class="px-2 py-2 text-center text-white bg-white/5">Draw</th>
                             <th class="px-2 py-2 text-center text-red-400">Tax</th>
                             <th class="px-2 py-2 text-center text-teal-400">NW</th>
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-white/5 text-[10px]">
-                        ${results.map(r => {
-                            const assetGap = Math.max(0, r.budget - r.floorGross - r.snap);
-                            const totalDraw = Object.values(r.draws).reduce((a, b) => a + b, 0);
-                            const helocSub = r.helocInt > 50 ? `<div class="text-[7px] font-black text-amber-500 uppercase mt-0.5">HELOC ${math.toSmartCompactCurrency(r.helocInt)}</div>` : '';
+                        ${results.map((r, i) => {
+                            let assetGap = Math.max(0, r.budget - r.floorGross - r.snap);
+                            let totalDraw = Object.values(r.draws).reduce((a, b) => a + b, 0);
+                            let helocInt = r.helocInt;
                             
-                            // Status Color Logic (Green for Platinum, Indigo for Medicare, Blue for Silver)
+                            // Adjust for Real $
+                            if (isReal) {
+                                const factor = Math.pow(1 + inflationRate, i);
+                                assetGap /= factor;
+                                totalDraw /= factor;
+                                helocInt /= factor;
+                            }
+
+                            const helocSub = helocInt > 50 ? `<div class="text-[7px] font-black text-amber-500 uppercase mt-0.5">HELOC ${math.toSmartCompactCurrency(helocInt)}</div>` : '';
+                            
+                            // Status Color Logic
                             let badgeClass = 'bg-slate-700 text-slate-400';
                             if (r.status === 'INSOLVENT') badgeClass = 'bg-red-500/20 text-red-400';
                             else if (r.status.includes('Platinum')) badgeClass = 'bg-emerald-500/20 text-emerald-400';
@@ -144,20 +174,21 @@ export function renderFire(el) {
                                     ${r.age}
                                 </td>
                                 <td class="px-2 py-1.5 text-center text-slate-300">
-                                    ${math.toSmartCompactCurrency(r.budget)}${helocSub}
+                                    ${fmt(r.budget, i)}${helocSub}
                                 </td>
+                                ${isPremium ? `
                                 <td class="px-2 py-1.5 text-center">
                                     <span class="px-1.5 py-0.5 rounded text-[7px] font-black uppercase ${badgeClass}">
                                         ${r.status.substring(0,8)}
                                     </span>
-                                </td>
-                                <td class="px-2 py-1.5 text-center font-bold text-emerald-400">${math.toSmartCompactCurrency(r.floorGross)}</td>
-                                <td class="px-2 py-1.5 text-center font-bold text-amber-400">${math.toSmartCompactCurrency(r.snap)}</td>
-                                ${renderAssetCells(r)}
+                                </td>` : ''}
+                                <td class="px-2 py-1.5 text-center font-bold text-emerald-400">${fmt(r.floorGross, i)}</td>
+                                ${isPremium ? `<td class="px-2 py-1.5 text-center font-bold text-amber-400">${fmt(r.snap, i)}</td>` : ''}
+                                ${renderAssetCells(r, i)}
                                 <td class="px-2 py-1.5 text-center font-bold text-orange-400">${math.toSmartCompactCurrency(assetGap)}</td>
                                 <td class="px-2 py-1.5 text-center font-black text-white bg-white/5">${math.toSmartCompactCurrency(totalDraw)}</td>
-                                <td class="px-2 py-1.5 text-center font-bold text-red-400">${math.toSmartCompactCurrency(r.taxes)}</td>
-                                <td class="px-2 py-1.5 text-center font-black text-teal-400 bg-teal-500/5">${math.toSmartCompactCurrency(r.netWorth)}</td>
+                                <td class="px-2 py-1.5 text-center font-bold text-red-400">${fmt(r.taxes, i)}</td>
+                                <td class="px-2 py-1.5 text-center font-black text-teal-400 bg-teal-500/5">${fmt(r.netWorth, i)}</td>
                             </tr>
                         `}).join('')}
                     </tbody>

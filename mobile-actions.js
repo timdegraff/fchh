@@ -187,7 +187,12 @@ window.toggleFireMode = () => {
     haptic();
     if (!window.currentData.burndown) window.currentData.burndown = {};
     const current = window.currentData.burndown.strategyMode || 'RAW';
-    const next = current === 'RAW' ? 'PLATINUM' : 'RAW';
+    
+    // Cycle: RAW -> PREMIUM -> PLATINUM -> RAW
+    let next = 'RAW';
+    if (current === 'RAW') next = 'PREMIUM';
+    else if (current === 'PREMIUM') next = 'PLATINUM';
+    else if (current === 'PLATINUM') next = 'RAW';
     
     window.currentData.burndown.strategyMode = next;
     mobileAutoSave();
@@ -196,6 +201,17 @@ window.toggleFireMode = () => {
     import('./mobile-render.js').then(m => {
         m.updateHeader(); // Updates the icon
         m.renderApp();    // Updates the table content
+    });
+};
+
+window.toggleRealDollars = () => {
+    haptic();
+    if (!window.currentData.burndown) window.currentData.burndown = {};
+    window.currentData.burndown.isRealDollars = !window.currentData.burndown.isRealDollars;
+    mobileAutoSave();
+    import('./mobile-render.js').then(m => {
+        m.updateHeader();
+        m.renderApp();
     });
 };
 
