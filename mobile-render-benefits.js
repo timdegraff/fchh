@@ -304,13 +304,13 @@ export function renderAid(el) {
                             <p class="text-[11px] text-slate-400 leading-relaxed">
                                 <strong class="text-white">Non-Expansion States:</strong> Adults under 100% FPL receive no ACA subsidy and no Medicaid. Recommend increasing MAGI to qualify for premium tax credits. Non-expansion states include: Texas, Florida, Georgia, Tennessee, Kansas, Mississippi, Alabama, South Carolina, Wisconsin, Wyoming.
                             </p>
-                            <p class="text-[11px] text-slate-500 leading-relaxed italic border-t border-white/5 pt-2 mt-2">
-                                Laws change often and are subject to change at any time, consult with your CPA and local laws regarding specific eligibility requirements.
-                            </p>
                          </div>
                     </div>
                 </div>
             </div>
+        </div>
+        <div class="text-[10px] text-slate-500 leading-relaxed italic text-center px-4 mt-2">
+            Laws change often and are subject to change at any time, consult with your CPA and local laws regarding specific eligibility requirements.
         </div>
     `;
     

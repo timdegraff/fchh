@@ -543,11 +543,9 @@ function renderConfig(el) {
         {
             id: 'market', title: 'MARKET ASSUMPTIONS', icon: 'fa-chart-line', color: 'text-orange-400',
             content: `
-                <div class="bg-blue-500/10 border border-blue-500/20 p-3 rounded-lg mb-4">
-                    <p class="text-[10px] text-blue-300 leading-relaxed font-medium">
-                        These growth rates determine how fast your assets compound annually. Inflation reduces purchasing power.
-                    </p>
-                </div>
+                <p class="text-[10px] text-blue-300 leading-relaxed font-medium mb-4 px-1">
+                    These growth rates determine how fast your assets compound annually. Inflation reduces purchasing power.
+                </p>
                 ${renderStepperSlider('Stock Growth', 'assumptions.stockGrowth', 1, 15, 0.5, a.stockGrowth, '%', 'text-blue-400')}
                 ${renderStepperSlider('Crypto Growth', 'assumptions.cryptoGrowth', 1, 15, 0.5, a.cryptoGrowth, '%', 'text-slate-400')}
                 ${renderStepperSlider('Metals Growth', 'assumptions.metalsGrowth', 1, 15, 0.5, a.metalsGrowth, '%', 'text-amber-500')}
@@ -558,11 +556,9 @@ function renderConfig(el) {
         {
             id: 'phases', title: 'SPENDING PHASES', icon: 'fa-walking', color: 'text-purple-400',
             content: `
-                <div class="bg-purple-500/10 border border-purple-500/20 p-3 rounded-lg mb-4">
-                    <p class="text-[10px] text-purple-300 leading-relaxed font-medium">
-                        Adjust your retirement spending budget for different life stages. 100% means full budget, <100% reduces spending as you age.
-                    </p>
-                </div>
+                <p class="text-[10px] text-purple-300 leading-relaxed font-medium mb-4 px-1">
+                    Adjust your retirement spending budget for different life stages. 100% means full budget, <100% reduces spending as you age.
+                </p>
                 ${renderStepperSlider('Go-Go (Age 30-60)', 'assumptions.phaseGo1', 50, 150, 5, Math.round(a.phaseGo1 * 100), '%', 'text-purple-400')}
                 ${renderStepperSlider('Slow-Go (Age 60-80)', 'assumptions.phaseGo2', 50, 150, 5, Math.round(a.phaseGo2 * 100), '%', 'text-purple-400')}
                 ${renderStepperSlider('No-Go (Age 80+)', 'assumptions.phaseGo3', 50, 150, 5, Math.round(a.phaseGo3 * 100), '%', 'text-purple-400')}
@@ -623,6 +619,14 @@ function renderIncome(el) {
                             <span class="text-[8px] text-slate-500 font-bold">%</span>
                         </div>
                     </div>
+                </div>
+
+                <div class="flex justify-between items-center pt-3 border-t border-white/5 mt-3">
+                    <span class="text-[9px] font-bold text-slate-500 uppercase">Stays in Retirement?</span>
+                    <label class="relative inline-flex items-center cursor-pointer">
+                        <input type="checkbox" onchange="window.updateIncomeBool(${i}, 'remainsInRetirement', this.checked); window.haptic();" ${inc.remainsInRetirement ? 'checked' : ''} class="sr-only peer">
+                        <div class="w-9 h-5 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-blue-600"></div>
+                    </label>
                 </div>
             </div>
         </div>`;
@@ -700,7 +704,10 @@ function renderBudget(el) {
         <div class="swipe-container mb-2">
             <div class="swipe-actions">
                 <button class="swipe-action-btn ${item.remainsInRetirement ? 'bg-emerald-600' : 'bg-slate-700'}" onclick="window.toggleSavingsRetirement(${realIndex})">
-                    ${item.remainsInRetirement ? 'Retires: YES' : 'Retires: NO'}
+                    <div class="flex flex-col items-center justify-center">
+                        <span class="text-[7px] font-bold uppercase tracking-tight leading-tight mb-1">Stays in<br>Retirement</span>
+                        <i class="fas ${item.remainsInRetirement ? 'fa-check-circle text-white' : 'fa-times-circle text-white/50'} text-lg"></i>
+                    </div>
                 </button>
                 <button class="swipe-action-btn bg-red-600" onclick="window.removeItem('budget.savings', ${realIndex})">Delete</button>
             </div>
