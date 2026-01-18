@@ -142,6 +142,7 @@ window.setBudgetMode = (mode) => {
     renderApp();
 };
 
+// Directly toggles for simple lists
 window.toggleBudgetBool = (type, index, key) => {
     haptic();
     const item = window.currentData.budget[type][index];
@@ -149,6 +150,15 @@ window.toggleBudgetBool = (type, index, key) => {
     mobileAutoSave();
     renderApp();
 };
+
+// Specific handler for Savings Swipe Button
+window.toggleSavingsRetirement = (index) => {
+    haptic();
+    const item = window.currentData.budget.savings[index];
+    item.remainsInRetirement = !item.remainsInRetirement;
+    mobileAutoSave();
+    renderApp();
+}
 
 window.addItem = (path) => {
     haptic();
@@ -325,6 +335,51 @@ window.openAdvancedIncome = (index) => {
     `;
     
     modal.classList.remove('hidden');
+};
+
+window.openAdvancedExpense = (index) => {
+    haptic();
+    const item = window.currentData.budget.expenses[index];
+    const modal = document.getElementById('advanced-modal');
+    const content = document.getElementById('advanced-modal-content');
+    
+    content.innerHTML = `
+        <h4 class="text-xs font-bold text-slate-500 uppercase tracking-widest mb-4">Settings for ${item.name || 'Expense'}</h4>
+        
+        <div class="space-y-4">
+            <div class="flex items-center justify-between p-4 bg-black/20 rounded-xl border border-white/5">
+                <div>
+                    <span class="text-sm font-bold text-white block">Continue in Retirement?</span>
+                    <span class="text-[9px] text-slate-500 block mt-0.5">Most expenses like groceries persist.</span>
+                </div>
+                <label class="relative inline-flex items-center cursor-pointer">
+                    <input type="checkbox" onchange="window.updateBudgetBool('expenses', ${index}, 'remainsInRetirement', this.checked)" ${item.remainsInRetirement ? 'checked' : ''} class="sr-only peer">
+                    <div class="w-11 h-6 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                </label>
+            </div>
+            
+            <div class="flex items-center justify-between p-4 bg-black/20 rounded-xl border border-white/5">
+                <div>
+                    <span class="text-sm font-bold text-white block">Fixed Payment?</span>
+                    <span class="text-[9px] text-slate-500 block mt-0.5">Does NOT inflate (e.g. Mortgage).</span>
+                </div>
+                <label class="relative inline-flex items-center cursor-pointer">
+                    <input type="checkbox" onchange="window.updateBudgetBool('expenses', ${index}, 'isFixed', this.checked)" ${item.isFixed ? 'checked' : ''} class="sr-only peer">
+                    <div class="w-11 h-6 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-amber-500"></div>
+                </label>
+            </div>
+        </div>
+    `;
+    
+    modal.classList.remove('hidden');
+};
+
+window.updateBudgetBool = (type, index, key, val) => {
+    haptic();
+    window.currentData.budget[type][index][key] = val;
+    mobileAutoSave();
+    // RenderApp is handled by modal close usually, but let's re-render underneath if needed
+    renderApp();
 };
 
 window.updateIncomeBool = (index, key, val) => {

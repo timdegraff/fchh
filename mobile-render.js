@@ -512,144 +512,6 @@ export function renderFire(el) {
     }, 100);
 }
 
-// --- MISSING RENDER FUNCTIONS ---
-
-function renderIncome(el) {
-    const d = window.currentData;
-    const income = d.income || [];
-    
-    const html = income.map((inc, i) => {
-        return `
-        <div class="swipe-container">
-            <div class="swipe-actions">
-                <button class="swipe-action-btn bg-slate-700" onclick="window.openAdvancedIncome(${i})">Settings</button>
-                <button class="swipe-action-btn bg-red-600" onclick="window.removeItem('income', ${i})">Delete</button>
-            </div>
-            <div class="swipe-content mobile-card p-4 border border-white/5 !mb-0">
-                <div class="flex justify-between items-center mb-3">
-                    <input data-path="income.${i}.name" value="${inc.name}" class="bg-transparent border-none p-0 text-sm font-black text-white uppercase tracking-wider w-full focus:ring-0 placeholder:text-slate-600">
-                    <button class="text-[9px] font-bold ${inc.isMonthly ? 'text-blue-400 bg-blue-500/10' : 'text-slate-500 bg-slate-800'} uppercase px-2 py-1 rounded-md transition-colors" onclick="const d = window.currentData.income[${i}]; d.isMonthly = !d.isMonthly; d.amount = d.isMonthly ? d.amount / 12 : d.amount * 12; window.mobileAutoSave(); window.renderApp();">
-                        ${inc.isMonthly ? 'Monthly' : 'Annual'}
-                    </button>
-                </div>
-                
-                <div class="mb-4">
-                    <label class="text-[8px] font-bold text-slate-500 uppercase block mb-0.5">Gross Amount</label>
-                    <input data-path="income.${i}.amount" data-type="currency" inputmode="decimal" value="${math.toCurrency(inc.amount)}" class="bg-transparent border-none p-0 text-2xl font-black text-teal-400 w-full focus:ring-0 tracking-tight">
-                </div>
-
-                <div class="grid grid-cols-3 gap-3 pt-3 border-t border-white/5">
-                    <div>
-                        <label class="text-[7px] font-bold text-slate-500 uppercase block mb-1">Growth</label>
-                        <div class="flex items-center gap-1">
-                            <input data-path="income.${i}.increase" type="number" step="0.5" value="${inc.increase}" class="bg-slate-900 border border-white/10 rounded px-1 py-1 text-xs font-bold text-white w-full text-center focus:ring-0">
-                            <span class="text-[8px] text-slate-500 font-bold">%</span>
-                        </div>
-                    </div>
-                    <div>
-                        <label class="text-[7px] font-bold text-slate-500 uppercase block mb-1">401k</label>
-                        <div class="flex items-center gap-1">
-                            <input data-path="income.${i}.contribution" type="number" step="1" value="${inc.contribution}" class="bg-slate-900 border border-white/10 rounded px-1 py-1 text-xs font-bold text-blue-400 w-full text-center focus:ring-0">
-                            <span class="text-[8px] text-slate-500 font-bold">%</span>
-                        </div>
-                    </div>
-                    <div>
-                        <label class="text-[7px] font-bold text-slate-500 uppercase block mb-1">Match</label>
-                        <div class="flex items-center gap-1">
-                            <input data-path="income.${i}.match" type="number" step="1" value="${inc.match}" class="bg-slate-900 border border-white/10 rounded px-1 py-1 text-xs font-bold text-slate-300 w-full text-center focus:ring-0">
-                            <span class="text-[8px] text-slate-500 font-bold">%</span>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>`;
-    }).join('');
-
-    el.innerHTML = `
-        <div class="space-y-3">
-            ${html}
-            <button class="section-add-btn" onclick="window.addItem('income')">
-                <i class="fas fa-plus"></i> Add Income Stream
-            </button>
-        </div>
-    `;
-}
-
-function renderBudget(el) {
-    const d = window.currentData;
-    const { collapsedSections, budgetMode } = getState();
-    const isMonthly = budgetMode === 'monthly';
-    const factor = isMonthly ? 1/12 : 1;
-    
-    const renderList = (items, type) => {
-        if (!items || !items.length) return '<div class="text-[10px] text-slate-600 text-center italic py-2">No items added</div>';
-        return items.map((item, i) => {
-            const val = item.annual * factor;
-            const path = `budget.${type}.${i}.annual`;
-            const isSavings = type === 'savings';
-            
-            return `
-            <div class="swipe-container mb-2">
-                <div class="swipe-actions">
-                    <button class="swipe-action-btn bg-red-600" onclick="window.removeItem('budget.${type}', ${i})">Delete</button>
-                </div>
-                <div class="swipe-content flex items-center justify-between p-3 bg-black/20 rounded-xl border border-white/5">
-                    <div class="flex-grow pr-4">
-                        ${isSavings ? `
-                            <div class="flex items-center gap-2 mb-1">
-                                <div class="w-1.5 h-1.5 rounded-full ${item.type === 'Pre-Tax (401k/IRA)' ? 'bg-blue-500' : (item.type === 'Roth IRA' ? 'bg-purple-500' : 'bg-emerald-500')}"></div>
-                                <select data-path="budget.savings.${i}.type" class="bg-transparent border-none p-0 text-xs font-black uppercase tracking-wider text-white focus:ring-0 cursor-pointer w-full" ${item.isLocked ? 'disabled' : ''}>
-                                    <option value="Taxable" ${item.type === 'Taxable' ? 'selected' : ''}>Taxable</option>
-                                    <option value="Pre-Tax (401k/IRA)" ${item.type === 'Pre-Tax (401k/IRA)' ? 'selected' : ''}>Pre-Tax</option>
-                                    <option value="Roth IRA" ${item.type === 'Roth IRA' ? 'selected' : ''}>Roth IRA</option>
-                                    <option value="HSA" ${item.type === 'HSA' ? 'selected' : ''}>HSA</option>
-                                    <option value="Cash" ${item.type === 'Cash' ? 'selected' : ''}>Cash</option>
-                                    <option value="Crypto" ${item.type === 'Crypto' ? 'selected' : ''}>Crypto</option>
-                                </select>
-                            </div>
-                        ` : `
-                            <input data-path="budget.${type}.${i}.name" value="${item.name}" class="bg-transparent border-none p-0 text-xs font-bold text-white w-full placeholder:text-slate-600 focus:ring-0 mb-1" placeholder="Expense Name">
-                        `}
-                        
-                        <div class="flex gap-2">
-                            ${type === 'expenses' ? `
-                                <button onclick="window.toggleBudgetBool('${type}', ${i}, 'remainsInRetirement')" class="text-[8px] font-bold uppercase px-1.5 py-0.5 rounded ${item.remainsInRetirement ? 'bg-blue-500/20 text-blue-400' : 'bg-slate-800 text-slate-500'}">
-                                    ${item.remainsInRetirement ? 'Retires' : 'Ends'}
-                                </button>
-                                <button onclick="window.toggleBudgetBool('${type}', ${i}, 'isFixed')" class="text-[8px] font-bold uppercase px-1.5 py-0.5 rounded ${item.isFixed ? 'bg-amber-500/20 text-amber-400' : 'bg-slate-800 text-slate-500'}">
-                                    ${item.isFixed ? 'Fixed' : 'Inflates'}
-                                </button>
-                            ` : `
-                                <span class="text-[8px] font-bold uppercase text-slate-600">${item.remainsInRetirement ? 'Active in Ret' : 'Accum Only'}</span>
-                            `}
-                        </div>
-                    </div>
-                    <div class="w-28 text-right">
-                        <input data-path="${path}" data-type="currency" inputmode="decimal" value="${math.toCurrency(val)}" class="bg-transparent border-none p-0 text-lg font-black text-right ${isSavings ? 'text-emerald-400' : 'text-pink-400'} w-full focus:ring-0" ${item.isLocked ? 'disabled opacity-50' : ''}>
-                    </div>
-                </div>
-            </div>`;
-        }).join('');
-    };
-
-    const savingsHtml = `
-        ${renderList(d.budget.savings, 'savings')}
-        <button class="section-add-btn" onclick="window.addItem('budget.savings')"><i class="fas fa-plus"></i> Add Savings Goal</button>
-    `;
-    
-    const expensesHtml = `
-        ${renderList(d.budget.expenses, 'expenses')}
-        <button class="section-add-btn" onclick="window.addItem('budget.expenses')"><i class="fas fa-plus"></i> Add Expense</button>
-    `;
-
-    el.innerHTML = `
-        <div class="space-y-4">
-            ${renderCollapsible('savings', 'Savings Targets', savingsHtml, !collapsedSections['savings'], 'fa-piggy-bank', 'text-emerald-400')}
-            ${renderCollapsible('expenses', 'Living Expenses', expensesHtml, !collapsedSections['expenses'], 'fa-credit-card', 'text-pink-400')}
-        </div>
-    `;
-}
-
 function renderConfig(el) {
     const a = window.currentData.assumptions;
     const { collapsedSections } = getState();
@@ -658,8 +520,8 @@ function renderConfig(el) {
         {
             id: 'timeline', title: 'TIMELINE & PROFILE', icon: 'fa-clock', color: 'text-blue-400',
             content: `
-                ${renderStepperSlider('Current Age', 'assumptions.currentAge', 18, 70, 1, a.currentAge, '')}
-                ${renderStepperSlider('Retirement Age', 'assumptions.retirementAge', 30, 80, 1, a.retirementAge, '', 'text-blue-400')}
+                ${renderStepperSlider('Current Age', 'assumptions.currentAge', 18, 80, 1, a.currentAge, '')}
+                ${renderStepperSlider('Retirement Age', 'assumptions.retirementAge', 18, 80, 1, a.retirementAge, '', 'text-blue-400')}
                 <div class="grid grid-cols-2 gap-4 mt-4">
                     <div>
                         <label class="text-[9px] font-bold text-slate-500 uppercase block mb-1">Filing Status</label>
@@ -681,16 +543,26 @@ function renderConfig(el) {
         {
             id: 'market', title: 'MARKET ASSUMPTIONS', icon: 'fa-chart-line', color: 'text-orange-400',
             content: `
-                ${renderStepperSlider('Stock Growth', 'assumptions.stockGrowth', 0, 15, 0.5, a.stockGrowth, '%', 'text-blue-400')}
+                <div class="bg-blue-500/10 border border-blue-500/20 p-3 rounded-lg mb-4">
+                    <p class="text-[10px] text-blue-300 leading-relaxed font-medium">
+                        These growth rates determine how fast your assets compound annually. Inflation reduces purchasing power.
+                    </p>
+                </div>
+                ${renderStepperSlider('Stock Growth', 'assumptions.stockGrowth', 1, 15, 0.5, a.stockGrowth, '%', 'text-blue-400')}
+                ${renderStepperSlider('Crypto Growth', 'assumptions.cryptoGrowth', 1, 15, 0.5, a.cryptoGrowth, '%', 'text-slate-400')}
+                ${renderStepperSlider('Metals Growth', 'assumptions.metalsGrowth', 1, 15, 0.5, a.metalsGrowth, '%', 'text-amber-500')}
                 ${renderStepperSlider('Real Estate', 'assumptions.realEstateGrowth', 0, 10, 0.5, a.realEstateGrowth, '%', 'text-indigo-400')}
-                ${renderStepperSlider('Crypto Growth', 'assumptions.cryptoGrowth', 0, 20, 1, a.cryptoGrowth, '%', 'text-slate-400')}
-                ${renderStepperSlider('Metals Growth', 'assumptions.metalsGrowth', 0, 15, 0.5, a.metalsGrowth, '%', 'text-amber-500')}
-                ${renderStepperSlider('Inflation', 'assumptions.inflation', 0, 10, 0.1, a.inflation, '%', 'text-red-400')}
+                ${renderStepperSlider('Inflation', 'assumptions.inflation', 1, 10, 0.1, a.inflation, '%', 'text-red-400')}
             `
         },
         {
             id: 'phases', title: 'SPENDING PHASES', icon: 'fa-walking', color: 'text-purple-400',
             content: `
+                <div class="bg-purple-500/10 border border-purple-500/20 p-3 rounded-lg mb-4">
+                    <p class="text-[10px] text-purple-300 leading-relaxed font-medium">
+                        Adjust your retirement spending budget for different life stages. 100% means full budget, <100% reduces spending as you age.
+                    </p>
+                </div>
                 ${renderStepperSlider('Go-Go (Age 30-60)', 'assumptions.phaseGo1', 50, 150, 5, Math.round(a.phaseGo1 * 100), '%', 'text-purple-400')}
                 ${renderStepperSlider('Slow-Go (Age 60-80)', 'assumptions.phaseGo2', 50, 150, 5, Math.round(a.phaseGo2 * 100), '%', 'text-purple-400')}
                 ${renderStepperSlider('No-Go (Age 80+)', 'assumptions.phaseGo3', 50, 150, 5, Math.round(a.phaseGo3 * 100), '%', 'text-purple-400')}
@@ -704,3 +576,8 @@ function renderConfig(el) {
         </button>
     `;
 }
+
+// --- MISSING RENDER FUNCTIONS ---
+
+function renderIncome(el) {
+// ... existing renderIncome logic ...

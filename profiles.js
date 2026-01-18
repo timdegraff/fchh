@@ -1,7 +1,7 @@
 
 export const BLANK_PROFILE = {
     investments: [
-        { name: '401K', type: 'Pre-Tax (401k/IRA)', value: 0, costBasis: 0 }
+        { name: '401K', type: 'Pre-Tax (401k/IRA)', value: 1, costBasis: 0 }
     ],
     stockOptions: [],
     realEstate: [

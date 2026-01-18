@@ -117,7 +117,7 @@ function attachListeners() {
         setTimeout(() => target.select(), 0);
     });
 
-    // Blur: Reformat with units
+    // Blur: Reformat with units and enforce strict bounds
     container.addEventListener('focusout', (e) => {
         const target = e.target;
         if (target.tagName !== 'INPUT') return;
@@ -129,6 +129,41 @@ function attachListeners() {
             const val = parseFloat(target.value) || 0;
             target.type = 'text';
             target.value = val + '%';
+        }
+        
+        // AGE LOGIC - Enforce on Blur
+        if (target.dataset.path) {
+            const path = target.dataset.path;
+            
+            if (path.includes('retirementAge')) {
+                const curAge = parseFloat(window.currentData?.assumptions?.currentAge) || 40;
+                let val = parseFloat(target.value) || 65;
+                if (val < curAge) val = curAge;
+                if (val > 80) val = 80;
+                if (val < 18) val = 18;
+                target.value = val;
+                
+                // Update Model Manually since input might not have triggered during fixup
+                const ref = window.currentData.assumptions;
+                if (ref) ref.retirementAge = val;
+                
+                // Also update slider visually
+                const slider = target.closest('.mb-5')?.querySelector('input[type="range"]');
+                if (slider) slider.value = val;
+            }
+            
+            if (path.includes('currentAge')) {
+                let val = parseFloat(target.value) || 40;
+                if (val > 80) val = 80;
+                if (val < 18) val = 18;
+                target.value = val;
+                
+                const ref = window.currentData.assumptions;
+                if (ref) ref.currentAge = val;
+                
+                const slider = target.closest('.mb-5')?.querySelector('input[type="range"]');
+                if (slider) slider.value = val;
+            }
         }
         
         // Trigger save if changed
@@ -154,7 +189,7 @@ function attachListeners() {
         }
         
         if (dataType === 'currency') {
-            val = math.fromCurrency(val); // FIXED: Handle "$1,000" strings from blur event
+            val = math.fromCurrency(val); 
             if (window.mobileState.activeTab === 'budget' && window.mobileState.budgetMode === 'monthly') val = val * 12;
         } else if (dataType === 'percent') {
             val = parseFloat(val) || 0;
@@ -183,6 +218,16 @@ function attachListeners() {
             ref = ref[pathParts[i]];
         }
         ref[pathParts[pathParts.length - 1]] = val;
+
+        // Auto-Sync Monthly/Annual for Budget
+        // If we updated one, we must update the sibling to keep data consistent
+        if (pathParts[0] === 'budget' && (key === 'annual' || key === 'monthly')) {
+            if (key === 'annual') {
+                ref['monthly'] = val / 12;
+            } else {
+                ref['annual'] = val * 12;
+            }
+        }
 
         // Auto-update Collapsible Section Headers (Totals)
         const collectionName = pathParts[0];
