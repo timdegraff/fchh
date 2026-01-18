@@ -10,8 +10,16 @@ export function updateAidHeader() {
     const ratio = magi / fpl;
     
     let status = 'MARKET';
-    if (ratio <= 1.38 || ben.isPregnant || ben.isDisabled) { status = 'PLATINUM'; }
-    else if (ratio <= 2.5) { status = 'SILVER'; }
+    let color = 'text-slate-500'; // Default
+
+    if (ratio <= 1.38 || ben.isPregnant || ben.isDisabled) { 
+        status = 'PLATINUM';
+        color = 'text-emerald-400';
+    }
+    else if (ratio <= 2.5) { 
+        status = 'SILVER'; 
+        color = 'text-blue-400';
+    }
     
     const snap = engine.calculateSnapBenefit(
         ben.isEarnedIncome !== false ? magi/12 : 0, 
@@ -24,7 +32,7 @@ export function updateAidHeader() {
     const right = document.getElementById('header-right');
     if (!right) return;
     right.innerHTML = `
-        <div class="text-[9px] font-bold text-slate-500 uppercase tracking-widest">${status}</div>
+        <div class="text-[9px] font-bold ${color} uppercase tracking-widest">${status}</div>
         <div class="font-black text-emerald-400 text-lg tracking-tighter mono-numbers">${math.toCurrency(snap)}/mo</div>
     `;
 }

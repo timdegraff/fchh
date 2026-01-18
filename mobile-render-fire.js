@@ -131,6 +131,13 @@ export function renderFire(el) {
                             const totalDraw = Object.values(r.draws).reduce((a, b) => a + b, 0);
                             const helocSub = r.helocInt > 50 ? `<div class="text-[7px] font-black text-amber-500 uppercase mt-0.5">HELOC ${math.toSmartCompactCurrency(r.helocInt)}</div>` : '';
                             
+                            // Status Color Logic (Green for Platinum, Indigo for Medicare, Blue for Silver)
+                            let badgeClass = 'bg-slate-700 text-slate-400';
+                            if (r.status === 'INSOLVENT') badgeClass = 'bg-red-500/20 text-red-400';
+                            else if (r.status.includes('Platinum')) badgeClass = 'bg-emerald-500/20 text-emerald-400';
+                            else if (r.status === 'Medicare') badgeClass = 'bg-indigo-500/20 text-indigo-400';
+                            else if (r.status.includes('Silver')) badgeClass = 'bg-blue-600/30 text-blue-100';
+
                             return `
                             <tr class="${r.status === 'INSOLVENT' ? 'bg-red-900/10' : ''}">
                                 <td class="sticky left-0 bg-[#1e293b] z-10 px-2 py-1.5 font-bold text-white text-center border-r border-white/10 shadow-lg">
@@ -140,7 +147,7 @@ export function renderFire(el) {
                                     ${math.toSmartCompactCurrency(r.budget)}${helocSub}
                                 </td>
                                 <td class="px-2 py-1.5 text-center">
-                                    <span class="px-1.5 py-0.5 rounded text-[7px] font-black uppercase ${r.status === 'INSOLVENT' ? 'bg-red-500/20 text-red-400' : (r.status.includes('Platinum') ? 'bg-emerald-500/20 text-emerald-400' : (r.status.includes('Silver') ? 'bg-blue-600/30 text-blue-100' : 'bg-slate-700 text-slate-400'))}">
+                                    <span class="px-1.5 py-0.5 rounded text-[7px] font-black uppercase ${badgeClass}">
                                         ${r.status.substring(0,8)}
                                     </span>
                                 </td>

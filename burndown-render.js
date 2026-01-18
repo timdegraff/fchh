@@ -15,6 +15,16 @@ export const assetMeta = {
 
 export const defaultPriorityOrder = ['cash', 'roth-basis', 'taxable', 'crypto', 'metals', 'heloc', '401k', 'hsa', 'roth-earnings'];
 
+// Status Color Helper (Shared Logic)
+const getStatusColor = (s) => {
+    if (s === 'INSOLVENT') return 'bg-red-900/20 text-red-400';
+    if (s.includes('Platinum')) return 'bg-emerald-500/20 text-emerald-400';
+    if (s === 'Medicare') return 'bg-indigo-500/20 text-indigo-400'; // Specific nice purple/blue for Medicare
+    if (s.includes('Silver')) return 'bg-blue-500/20 text-blue-400'; // Silver logic uses blue usually
+    if (s === 'Active') return 'bg-blue-600 text-white';
+    return 'bg-slate-700/30 text-slate-400'; // Fallback / Market
+};
+
 export function renderPriorityList(container, currentOrder, callback) {
     if (!container) return;
     container.innerHTML = currentOrder.map(k => {
@@ -60,21 +70,24 @@ export function renderTrace(container, results, targetYear) {
     const breakdown = cycle.incomeBreakdown || [];
     const inventory = (cycle.nwBreakdown || []).filter(item => Math.abs(item.value) > 1).sort((a, b) => b.value - a.value);
     const nwDelta = cycle.netWorth - cycle.startNW;
+    
+    // Use consistent status coloring
+    const badgeClass = getStatusColor(cycle.status);
 
     container.innerHTML = `
         <div class="space-y-4">
             <div class="border-b border-white/5 pb-2 mb-4 flex justify-between items-center">
                 <span class="text-white font-black tracking-widest uppercase">--- AGE ${cycle.age} (${cycle.year}) ---</span>
-                <span class="px-2 py-0.5 rounded text-[8px] font-black uppercase bg-blue-500/20 text-blue-400">${cycle.status}</span>
+                <span class="px-2 py-0.5 rounded text-[8px] font-black uppercase ${badgeClass}">${cycle.status}</span>
             </div>
 
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div class="space-y-2">
                     <div class="flex items-center justify-between">
-                        <p class="text-teal-400 font-bold tracking-tight">Financial Inflows</p>
+                        <p class="text-emerald-400 font-bold tracking-tight">Financial Inflows</p>
                         <span class="text-[8px] font-black text-slate-500 uppercase">Gross Total: ${fmt(cycle.floorGross)}</span>
                     </div>
-                    <ul class="space-y-1 pl-4 border-l border-teal-500/20">
+                    <ul class="space-y-1 pl-4 border-l border-emerald-500/20">
                         ${breakdown.map(item => `
                             <li class="flex justify-between items-center text-[11px]">
                                 <span class="text-slate-500 uppercase tracking-tighter">${item.name}:</span>
@@ -131,7 +144,7 @@ export function renderTrace(container, results, targetYear) {
                 </div>
                 <div class="text-right">
                     <span class="text-slate-500 uppercase tracking-widest text-[9px] block mb-1">NW: Start » End</span>
-                    <span class="font-black text-teal-400 text-sm">${fmtNW(cycle.startNW)} » ${fmtNW(cycle.netWorth)}</span>
+                    <span class="font-black text-emerald-400 text-sm">${fmtNW(cycle.startNW)} » ${fmtNW(cycle.netWorth)}</span>
                 </div>
             </div>
 
@@ -184,9 +197,12 @@ export function renderTable(results, currentData, priorityOrder, isRealDollars, 
         const inf = isRealDollars ? Math.pow(1 + infRate, i) : 1;
         const formatVal = (v) => math.toSmartCompactCurrency(v / inf);
         
-        let badgeClass = r.status === 'INSOLVENT' ? 'bg-red-600 text-white' 
-            : (r.status === 'Platinum' ? 'bg-emerald-500 text-white' 
-            : (r.status === 'Active' ? 'bg-blue-600 text-white' : 'bg-slate-700 text-slate-400'));
+        let badgeClass = '';
+        if (r.status === 'INSOLVENT') badgeClass = 'bg-red-600 text-white';
+        else if (r.status.includes('Platinum')) badgeClass = 'bg-emerald-500 text-white'; // Green
+        else if (r.status === 'Medicare') badgeClass = 'bg-indigo-500 text-white'; // Indigo
+        else if (r.status === 'Active') badgeClass = 'bg-blue-600 text-white';
+        else badgeClass = 'bg-slate-700 text-slate-400';
             
         const assetGap = Math.max(0, r.budget - r.floorGross - r.snap);
         const helocSub = r.helocInt > 50 ? `<div class="text-[7px] font-black text-amber-500 uppercase mt-0.5">HELOC ${formatVal(r.helocInt)}</div>` : '';

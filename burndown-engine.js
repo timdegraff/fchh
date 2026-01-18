@@ -78,6 +78,7 @@ export function simulateProjection(data, config) {
 
         let floorGross = 0, floorTaxable = 0, incomeBreakdown = [];
         let traceLog = [];
+        let rmdThisYear = 0;
         
         if (helocInterestThisYear > 50) {
             traceLog.push(`Debt Service: ${math.toCurrency(helocInterestThisYear)} interest due on ${math.toCurrency(bal['heloc'])} HELOC balance. Added to budget.`);
@@ -135,8 +136,10 @@ export function simulateProjection(data, config) {
                     floorGross += rmd;
                     floorTaxable += rmd;
                     bal['401k'] = Math.max(0, bal['401k'] - rmd);
-                    incomeBreakdown.push({ name: 'RMD (401k/IRA)', amount: rmd });
+                    // Note: RMD is technically income, but for UI clarity we will move it to 'Draws' in the final output.
+                    // We keep it in floorGross/floorTaxable here because the solver needs to know this income exists to reduce the deficit gap.
                     traceLog.push(`RMD: Mandatory withdrawal of ${math.toCurrency(rmd)} from Pre-Tax at Age ${age}.`);
+                    rmdThisYear = rmd;
                 }
             }
 
@@ -232,12 +235,28 @@ export function simulateProjection(data, config) {
             { name: 'Other Assets', value: sOA, color: assetColors['Other'] }
         ];
 
+        // Prepare UI Display Data
+        // If RMD was taken, move it from 'Income' to 'Draw' for table clarity
+        let displayDraws = { ...drawMap };
+        if (rmdThisYear > 0) {
+            displayDraws['401k'] = (displayDraws['401k'] || 0) + rmdThisYear;
+        }
+        
+        let displayFloorGross = floorGross - rmdThisYear;
+        let displayPreTaxDraw = Object.values(displayDraws).reduce((a, b) => a + b, 0);
+
         results.push({ 
             age, year, budget: targetBudget, helocInt: helocInterestThisYear, isFirstRetYear: age === rAge, 
-            preTaxDraw, taxes, snap, balances: { ...startOfYearBal }, draws: drawMap, postTaxInc, 
-            status: strategyResult.status, netWorth: (sLiquid + sRE + sOA + sOptNW) - sLiabilities, 
-            startNW: (sLiquid + sRE + sOA + sOptNW) - sLiabilities - (strategyResult.surplus || 0), // Approx
-            floorGross, incomeBreakdown, traceLog, nwBreakdown
+            preTaxDraw: displayPreTaxDraw, 
+            taxes, snap, balances: { ...startOfYearBal }, 
+            draws: displayDraws, 
+            postTaxInc, 
+            status: strategyResult.status, 
+            netWorth: (sLiquid + sRE + sOA + sOptNW) - sLiabilities, 
+            startNW: (sLiquid + sRE + sOA + sOptNW) - sLiabilities - (strategyResult.surplus || 0), 
+            floorGross: displayFloorGross, 
+            incomeBreakdown, 
+            traceLog, nwBreakdown
         });
     }
 
